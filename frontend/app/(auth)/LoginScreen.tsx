@@ -1,8 +1,12 @@
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import React from 'react';
 import { TailwindProvider } from 'tailwindcss-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Link } from "expo-router";
 
-const sign = () => {
+const navigation = useNavigation();
+
+const LoginScreen = () => {
   return (
     <TailwindProvider>
       <View className="flex-1 bg-white justify-center items-center">
@@ -42,14 +46,17 @@ const sign = () => {
 
         {/* Register Link */}
         <View className="flex-row mt-6">
-          <Text className="text-sm text-gray-600">Don't have an account? </Text>
-          <TouchableOpacity>
-            <Text className="text-sm text-blue-500 font-bold">Sign Up</Text>
-          </TouchableOpacity>
+        <Link
+            href="/(auth)/RegisterScreen"
+            className="text-lg text-center text-general-200 mt-10"
+          >
+            <Text>Don't have an account?</Text>
+            <Text className="text-yellow-500"> Sign Up</Text>
+          </Link>
         </View>
       </View>
     </TailwindProvider>
   );
 };
 
-export default sign;
+export default LoginScreen;

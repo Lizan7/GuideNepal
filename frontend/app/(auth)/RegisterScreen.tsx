@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { t } from 'react-native-tailwindcss';
 import { useNavigation } from '@react-navigation/native'; // Import useNavigation
 import * as DocumentPicker from 'expo-document-picker';
+import { Link } from "expo-router";
 
 const RegisterScreen = () => {
   const [userType, setUserType] = useState<string>('Tourist');
@@ -128,15 +129,13 @@ const RegisterScreen = () => {
 
       {/* Login Information */}
       <View style={[{ marginTop: 24 }, t.itemsCenter]}>
-        <Text style={[t.textGray700, t.textBase]}>
-          Already have an account?{' '}
-          <Text
-            style={[t.textBlue500, t.fontBold]}
-            onPress={() => navigation.navigate('/Sign')}
+      <Link
+            href="/(auth)/LoginScreen"
+            className="text-lg text-center text-general-200 mt-10"
           >
-            Login here
-          </Text>
-        </Text>
+            <Text>Already have an account?</Text>
+            <Text className="text-yellow-500">Login here</Text>
+          </Link>
       </View>
     </View>
   );
