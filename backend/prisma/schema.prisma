@@ -15,8 +15,46 @@ datasource db {
 
 
 model User {
-  id      Int      @id @default(autoincrement())
-  name    String?  @db.VarChar(255)
-  email   String   @unique(map: "email") @db.VarChar(255)
-
+  id       Int     @id @default(autoincrement())
+  name     String? @db.VarChar(255)
+  email    String  @unique(map: "email") @db.VarChar(255)
+  password String
+  role     Role
+  guides   Guide[] // One-to-One or One-to-Many relationship
+  hotels   Hotel[]
 }
+
+model Guide {
+  id                Int    @id @default(autoincrement())
+  userId            Int    @unique
+  user              User   @relation(fields: [userId], references: [id])
+  phoneNumber       String
+  location          String
+  specialization    String
+  profileImage      String? @db.LongText
+  verificationImage String? @db.LongText
+  createdAt         DateTime @default(now())
+}
+
+
+enum Role {
+  ADMIN
+  USER
+  GUIDE
+  HOTEL
+}
+
+model Hotel {
+  id                Int    @id @default(autoincrement())
+  userId            Int    @unique
+  user              User   @relation(fields: [userId], references: [id])
+  hotelphoneNumber       String
+  hotelLocation          String
+  Rooms             Int
+  profileImage      String? @db.LongText
+  verificationImage String? @db.LongText
+  createdAt         DateTime @default(now())
+}
+
+
+
