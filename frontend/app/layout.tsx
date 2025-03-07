@@ -29,6 +29,7 @@ const Layout = () => {
         <Stack.Screen name="/UserChat" options={{ headerShown: false }} />
         <Stack.Screen name="/UserProfile" options={{ headerShown: false }} />
         <Stack.Screen name="/UserMenu" options={{ headerShown: false }} />
+        <Stack.Screen name="/Booking" options={{ headerShown: false }} />
       </Stack>
 
       {/* Toast Notifications */}

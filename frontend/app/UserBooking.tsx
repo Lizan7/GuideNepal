@@ -6,34 +6,65 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import API_BASE_URL from "@/config";
 
 const UserBooking = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [bookings, setBookings] = useState([
-    {
-      id: "1",
-      title: "Hotel Everest Stay",
-      date: "March 5, 2025",
-      location: "Kathmandu, Nepal",
-      image: require("../assets/images/hotel1.jpg"),
-    },
-    {
-      id: "2",
-      title: "Pokhara Adventure Tour",
-      date: "April 10, 2025",
-      location: "Pokhara, Nepal",
-      image: require("../assets/images/hotel2.jpg"),
-    },
-  ]);
+  const [bookings, setBookings] = useState([]);
 
-  // Simulate a 2-second loading time
+  // Function to fetch user bookings from the backend
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+      const userId = await AsyncStorage.getItem("userId");
+
+      if (!token || !userId) {
+        Alert.alert(
+          "Error",
+          "User authentication failed. Please log in again."
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Fetch bookings from the backend
+      const response = await axios.get(
+        `${API_BASE_URL}/booking/user/${userId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log("Fetched Bookings:", response.data);
+
+      if (response.data && response.data.bookings) {
+        setBookings(response.data.bookings);
+      } else {
+        setBookings([]);
+      }
+    } catch (error) {
+      console.error(
+        "Fetch Booking Error:",
+        error.response?.data || error.message
+      );
+      Alert.alert("Error", "Failed to fetch bookings.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 400);
-    return () => clearTimeout(timer);
+    fetchBookings();
   }, []);
 
   return (
@@ -72,14 +103,21 @@ const UserBooking = () => {
       ) : (
         <FlatList
           data={bookings}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => (
             <View className="bg-gray-100 p-4 m-2 rounded-lg flex-row items-center">
-              <Image source={item.image} className="w-20 h-20 rounded-lg" />
+              <Image
+                source={{ uri: `${API_BASE_URL}${item.guide.profileImage}` }}
+                className="w-20 h-20 rounded-lg"
+              />
               <View className="flex-1 ml-4">
-                <Text className="text-base font-bold">{item.title}</Text>
-                <Text className="text-sm text-gray-600">{item.date}</Text>
-                <Text className="text-sm text-gray-500">{item.location}</Text>
+                <Text className="text-base font-bold">{item.guide.email}</Text>
+                <Text className="text-sm text-gray-600">
+                  {new Date(item.bookingDate).toDateString()}
+                </Text>
+                <Text className="text-sm text-gray-500">
+                  {item.guide.specialization}
+                </Text>
               </View>
               <TouchableOpacity className="bg-pink-600 px-4 py-1 rounded-md">
                 <Text className="text-white font-medium">View</Text>

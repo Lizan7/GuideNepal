@@ -1,30 +1,53 @@
-import React from "react";
-import { View, Text, Image, ScrollView, TouchableOpacity } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
+
+import {
+  View,
+  Text,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import API_BASE_URL from "@/config";
 
-const guides = [
-  {
-    name: "John Doe",
-    expertise: "Expert in City Tours",
-    image: require("../assets/images/Guide1.jpg"),
-  },
-  {
-    name: "Jane Smith",
-    expertise: "Mountain Guide",
-    image: require("../assets/images/Guide2.jpg"),
-  },
-  {
-    name: "Jane Smith",
-    expertise: "Mountain Guide",
-    image: require("../assets/images/Guide2.jpg"),
-  },
-  {
-    name: "Jane Smith",
-    expertise: "Mountain Guide",
-    image: require("../assets/images/Guide2.jpg"),
-  },
-];
+interface Guide {
+  id: number;
+  email: string;
+  location: string;
+  phoneNumber: string;
+  specialization: string;
+  profileImage: string;
+  verificationImage: string;
+  isVerified: boolean;
+}
+
+// const guides = [
+//   {
+//     name: "John Doe",
+//     expertise: "Expert in City Tours",
+//     image: require("../assets/images/Guide1.jpg"),
+//   },
+//   {
+//     name: "Jane Smith",
+//     expertise: "Mountain Guide",
+//     image: require("../assets/images/Guide2.jpg"),
+//   },
+//   {
+//     name: "Jane Smith",
+//     expertise: "Mountain Guide",
+//     image: require("../assets/images/Guide2.jpg"),
+//   },
+//   {
+//     name: "Jane Smith",
+//     expertise: "Mountain Guide",
+//     image: require("../assets/images/Guide2.jpg"),
+//   },
+// ];
 
 const hotels = [
   {
@@ -70,6 +93,65 @@ const experiences = [
 
 const UserHome = () => {
   const router = useRouter();
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [guides, setGuides] = useState<Guide[]>([]);
+
+  const fetchGuideDetails = async () => {
+    try {
+      setLoading(true);
+
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Error", "No token found, please log in again.");
+        setLoading(false);
+        return;
+      }
+
+      console.log("API Request URL:", `${API_BASE_URL}/guides/details`);
+      console.log("Retrieved Token:", token);
+
+      const response = await axios.get(`${API_BASE_URL}/guides/details`, {
+        headers: {
+          Authorization: `Bearer ${token.trim()}`,
+        },
+      });
+
+      console.log("Response Status:", response.status);
+      console.log("Response Data:", response.data);
+      console.log("Response Headers:", response.headers);
+
+      if (response.data && response.data.guides) {
+        setGuides(response.data.guides);
+      } else {
+        console.warn("No guides found in response.");
+      }
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error("Axios Error:", error.response?.data || error.message);
+        Alert.alert(
+          "Error",
+          error.response?.data?.message || "Failed to fetch guide details."
+        );
+      } else {
+        console.error("Unexpected Error:", error);
+        Alert.alert("Error", "An unexpected error occurred.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGuideDetails();
+  }, []);
+
+  // Pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchGuideDetails();
+    setRefreshing(false);
+  }, []);
 
   return (
     <View className="flex-1 bg-white h-fit">
@@ -125,7 +207,7 @@ const UserHome = () => {
           </View>
 
           {/* Featured Guides */}
-          <View className="px-4">
+          {/* <View className="px-4">
             <Text className="text-2xl font-bold text-gray-900 mt-6">
               Experience the {"                                          "}best
               destinations
@@ -152,7 +234,51 @@ const UserHome = () => {
                 </View>
               ))}
             </ScrollView>
-          </View>
+          </View> */}
+
+          {/* Featured Guides */}
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mt-3"
+          >
+            {guides.map((guide, index) => {
+              const imageUrl = `${API_BASE_URL}${guide.profileImage}`;
+
+              console.log("Final Image URL in React Native:", imageUrl);
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  className="mr-4"
+                  onPress={() =>
+                    router.push({
+                      pathname: "/Booking",
+                      params: {
+                        guideId: guide.id,
+                        guideEmail: guide.email,
+                        guideSpecialization: guide.specialization,
+                        guideImage: imageUrl,
+                      },
+                    })
+                  }
+                >
+                  <Image
+                    source={{ uri: imageUrl }}
+                    style={{ width: 150, height: 150, borderRadius: 10 }}
+                    onError={(e) =>
+                      console.log("Image Load Error:", e.nativeEvent.error)
+                    }
+                  />
+                  <Text className="font-semibold mt-2">{guide.email}</Text>
+                  <Text className="text-gray-500 text-sm">
+                    {guide.specialization}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
           <View className="px-4 mt-3">
             {/* Popular Hotels */}
