@@ -22,18 +22,22 @@ model User {
   role     Role
   guides   Guide[] // One-to-One or One-to-Many relationship
   hotels   Hotel[]
+  bookings UserBooking[]
 }
 
 model Guide {
   id                Int    @id @default(autoincrement())
   userId            Int    @unique
   user              User   @relation(fields: [userId], references: [id])
+  email             String
   phoneNumber       String
   location          String
   specialization    String
+  isVerified        Boolean
   profileImage      String? @db.LongText
   verificationImage String? @db.LongText
   createdAt         DateTime @default(now())
+  bookings          UserBooking[]
 }
 
 
@@ -57,4 +61,14 @@ model Hotel {
 }
 
 
+model UserBooking {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  guideId       Int
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guide         Guide    @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  bookingDate   DateTime @default(now())
+  paymentStatus Boolean  @default(false)
 
+  createdAt     DateTime @default(now())
+}

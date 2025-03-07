@@ -1,25 +1,27 @@
-const express = require('express');
-const cors = require("cors");
-const authRoutes = require("./routes/authRoutes"); 
-const guideRoutes = require("./routes/guideRoutes");
-const userRoutes = require("./routes/userRoutes");
+  const express = require('express');
+  const cors = require("cors");
+  const path = require('path');
 
-require('dotenv').config();
+  const authRoutes = require("./routes/authRoutes");
+  const guideRoutes = require("./routes/guideRoutes");
+  const bookingRoutes = require("./routes/bookingRoutes");
 
-const app = express();
+  require('dotenv').config();
 
-// Middleware to parse JSON bodies
-app.use(express.json());
+  const app = express();
 
-app.use(cors());
+  // Middleware to parse JSON bodies
+  app.use(express.json());
+  app.use(cors());
 
-app.use("/api/auth", authRoutes);
-// app.use("/api/users", userRoutes);
-// app.use("/api/guides", guideRoutes);
+  // ✅ Serve static files from the 'uploads' directory
+  app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
+  app.use("/api/auth", authRoutes);
+  app.use("/api/guides", guideRoutes);
+  app.use("/api/booking", bookingRoutes);
 
-// Start the server on the port specified in .env or default to 3000
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });

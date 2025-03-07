@@ -1,21 +1,30 @@
 const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = process.env.JWT_SECRET || "Lizan@123";
+const authenticateUser = (roles = []) => {
+  return (req, res, next) => {
+    const authorizationHeaderValue = req.headers["authorization"];
+    if (!authorizationHeaderValue || !authorizationHeaderValue.startsWith("Bearer ")) {
 
-const authenticateUser = (req, res, next) => {
-    const token = req.header("Authorization")?.split(" ")[1];
-
+      return res.status(401).json({ error: "Access Denied" });
+    }
+    const token = authorizationHeaderValue.split("Bearer ")[1];
     if (!token) {
-        return res.status(401).json({ error: "Access denied. No token provided." });
+      return res.status(401).json({ error: "Access Denied" });
     }
 
     try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (error) {
-        res.status(403).json({ error: "Invalid or expired token." });
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+      console.log(req.user);
+      if (roles.length && !roles.includes(req.user.role)) {
+        return res.status(403).send("Forbidden");
+      }
+      next();
+    } catch (err) {
+      console.log("Token validation error:", err);
+      return res.status(400).send("Invalid Token");
     }
+  };
 };
 
 module.exports = { authenticateUser };

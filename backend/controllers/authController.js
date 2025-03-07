@@ -77,7 +77,7 @@ const login = async (req, res) => {
             return res.status(500).json({ success: false, error: "User role is missing" });
         }
 
-        const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
+        const token = jwt.sign({ id: user.id, email:user.email, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
 
         return res.status(200).json({
             success: true,
