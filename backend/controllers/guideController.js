@@ -33,6 +33,7 @@ const storeGuideDetails = async (req, res) => {
     try {
         const userId = req.user.id;
         const email = req.user.email;
+        const name = req.user.name;
         console.log('usersr', req.user);
         const { location, phoneNumber, specialization } = req.body;
       if (!req.files) {
@@ -73,6 +74,7 @@ const storeGuideDetails = async (req, res) => {
       const guide = await prisma.guide.create({
         data: {
           userId: user.id,
+          name: userName,
           phoneNumber,
           location,
           specialization,
@@ -100,7 +102,12 @@ const getGuideDetails = async (req, res) => {
   try {
       const guideDetails = await prisma.guide.findMany({ // Fetch all guides
           include: {
-              user: true
+              user: {
+                select: {
+                  email: true,
+                  name: true,
+                },
+              }
           }
       });
 

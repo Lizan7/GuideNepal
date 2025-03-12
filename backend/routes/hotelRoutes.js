@@ -1,7 +1,11 @@
-// const express = require("express");
-// const router = express.Router();
-// const { storeHotelDetails } = require("../controllers/hotelController");
+const express = require("express");
+const { authenticateUser } = require("../middlewares/authMiddleware");
+const { verifyHotelDetails, getHotels, getHotelById } = require("../controllers/hotelController");
 
-// router.post("/", storeHotelDetails);
+const router = express.Router();
 
-// module.exports = router;
+router.post("/verify", authenticateUser(["HOTEL"]), verifyHotelDetails); // ✅ Only HOTEL role can verify
+router.get("/hotelDetails", authenticateUser(), getHotels); // ✅ Any logged-in user can view hotels
+router.get("/:id", authenticateUser(), getHotelById); // ✅ Any logged-in user can view hotel details
+
+module.exports = router;

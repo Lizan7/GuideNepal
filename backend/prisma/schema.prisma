@@ -23,6 +23,7 @@ model User {
   guides   Guide[] // One-to-One or One-to-Many relationship
   hotels   Hotel[]
   bookings UserBooking[]
+  hotelBookings  HotelBooking[]
 }
 
 model Guide {
@@ -30,6 +31,7 @@ model Guide {
   userId            Int    @unique
   user              User   @relation(fields: [userId], references: [id])
   email             String
+  name              String? @db.VarChar(255)
   phoneNumber       String
   location          String
   specialization    String
@@ -49,26 +51,50 @@ enum Role {
 }
 
 model Hotel {
-  id                Int    @id @default(autoincrement())
-  userId            Int    @unique
-  user              User   @relation(fields: [userId], references: [id])
-  hotelphoneNumber       String
-  hotelLocation          String
-  Rooms             Int
-  profileImage      String? @db.LongText
-  verificationImage String? @db.LongText
-  createdAt         DateTime @default(now())
+  id              Int      @id @default(autoincrement())
+  name            String
+  email           String   
+  phoneNumber     String
+  location        String
+  price           Float
+  itineraries     String
+  roomsAvailable  Int
+  isVerified      Boolean
+  profileImage    String?
+  certificate     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  userId          Int      @unique
+  user            User     @relation(fields: [userId], references: [id])
+  hotelBookings  HotelBooking[] 
 }
 
 
 model UserBooking {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  guideId     Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guide       Guide    @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  startDate   DateTime?  
+  endDate     DateTime?  
+  paymentStatus Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+}
+
+model HotelBooking {
   id            Int      @id @default(autoincrement())
   userId        Int
-  guideId       Int
+  hotelId       Int
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  guide         Guide    @relation(fields: [guideId], references: [id], onDelete: Cascade)
-  bookingDate   DateTime @default(now())
+  hotel         Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  startDate     DateTime
+  endDate       DateTime
+  rooms         Int
   paymentStatus Boolean  @default(false)
 
   createdAt     DateTime @default(now())
 }
+
+

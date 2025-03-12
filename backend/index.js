@@ -4,7 +4,9 @@
 
   const authRoutes = require("./routes/authRoutes");
   const guideRoutes = require("./routes/guideRoutes");
+  const hotelRoutes = require("./routes/hotelRoutes");
   const bookingRoutes = require("./routes/bookingRoutes");
+  const hotelbookingRoutes = require("./routes/hotelbookingRoutes");
 
   require('dotenv').config();
 
@@ -14,12 +16,16 @@
   app.use(express.json());
   app.use(cors());
 
-  // ✅ Serve static files from the 'uploads' directory
-  app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve images from guideVerification and hotelUploads folders
+app.use("/api/guideVerification", express.static(path.join(__dirname, "guideVerification")));
+app.use("/api/hotelUploads", express.static(path.join(__dirname, "hotelUploads")));
 
   app.use("/api/auth", authRoutes);
   app.use("/api/guides", guideRoutes);
+  app.use("/api/hotels", hotelRoutes);
   app.use("/api/booking", bookingRoutes);
+  app.use("/api/hotelbooking", hotelbookingRoutes);
+
 
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {

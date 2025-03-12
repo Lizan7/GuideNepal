@@ -1,54 +1,60 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-// Create User Booking
+// Create User Booking with Multiple Days
 const createUserBooking = async (req, res) => {
   try {
-    // Get userId from authenticated request
     const userId = req.user.id;
-    const { guideId, bookingDate, paymentStatus } = req.body;
+    const { guideId, startDate, endDate, paymentStatus } = req.body;
 
     // Validate input
-    if (!guideId || !bookingDate) {
-      return res.status(400).json({ error: "Guide ID and booking date are required." });
+    if (!guideId || !startDate || !endDate) {
+      return res.status(400).json({ error: "Guide ID, start date, and end date are required." });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (start > end) {
+      return res.status(400).json({ error: "Start date must be before end date." });
     }
 
     // Ensure user exists
     const user = await prisma.user.findUnique({ where: { id: parseInt(userId) } });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
     // Ensure guide exists
     const guide = await prisma.guide.findUnique({ where: { id: parseInt(guideId) } });
-    if (!guide) {
-      return res.status(404).json({ error: "Guide not found" });
-    }
+    if (!guide) return res.status(404).json({ error: "Guide not found" });
 
-    // Prevent users from booking themselves as a guide (if applicable)
     if (guide.userId === userId) {
       return res.status(400).json({ error: "You cannot book yourself as a guide." });
     }
 
-    // Check if booking already exists for the same user, guide, and date
+    // Check if there are overlapping bookings
     const existingBooking = await prisma.userBooking.findFirst({
       where: {
-        userId: parseInt(userId),
         guideId: parseInt(guideId),
-        bookingDate: new Date(bookingDate),
+        OR: [
+          {
+            startDate: { lte: end },
+            endDate: { gte: start },
+          },
+        ],
       },
     });
 
     if (existingBooking) {
-      return res.status(400).json({ error: "You already have a booking with this guide on the selected date." });
+      return res.status(400).json({ error: "This guide is already booked during these dates." });
     }
 
-    // Create booking in the database
+    // Create booking for multiple days
     const newBooking = await prisma.userBooking.create({
       data: {
         userId: parseInt(userId),
         guideId: parseInt(guideId),
-        bookingDate: new Date(bookingDate),
+        startDate: start,
+        endDate: end,
         paymentStatus: paymentStatus ?? false, // Default to false if not provided
       },
     });
@@ -60,39 +66,37 @@ const createUserBooking = async (req, res) => {
   }
 };
 
-
 // Get All Bookings for a User
 const getUserBookings = async (req, res) => {
-    try {
-      const userId = req.user.id; // Get logged-in user ID
-  
-      const bookings = await prisma.userBooking.findMany({
-        where: { userId: parseInt(userId) },
-        include: {
-          guide: {
-            select: {
-              id: true,
-              email: true,
-              specialization: true, // ✅ Add `true` to properly select the specialization field
-              profileImage: true,
-            },
+  try {
+    const userId = req.user.id;
+
+    const bookings = await prisma.userBooking.findMany({
+      where: { userId: parseInt(userId) },
+      include: {
+        guide: {
+          select: {
+            id: true,
+            email: true,
+            specialization: true,
+            profileImage: true,
           },
         },
-        orderBy: { bookingDate: "desc" },
-      });
-  
-      return res.status(200).json({ success: true, bookings });
-    } catch (error) {
-      console.error("Error fetching user bookings:", error);
-      return res.status(500).json({ error: "Internal Server Error" });
-    }
-  };
-  
+      },
+      orderBy: { startDate: "desc" },
+    });
+
+    return res.status(200).json({ success: true, bookings });
+  } catch (error) {
+    console.error("Error fetching user bookings:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
 
 // Get All Bookings for a Guide
 const getGuideBookings = async (req, res) => {
   try {
-    const guideId = req.user.id; // Ensure guide is logged in
+    const guideId = req.user.id;
 
     // Ensure guide exists
     const guide = await prisma.guide.findUnique({ where: { userId: parseInt(guideId) } });
@@ -103,9 +107,9 @@ const getGuideBookings = async (req, res) => {
     const bookings = await prisma.userBooking.findMany({
       where: { guideId: guide.id },
       include: {
-        user: { select: { id: true, email: true, name: true } }, // Include user details
+        user: { select: { id: true, email: true, name: true } },
       },
-      orderBy: { bookingDate: "desc" },
+      orderBy: { startDate: "desc" },
     });
 
     return res.status(200).json({ success: true, bookings });
