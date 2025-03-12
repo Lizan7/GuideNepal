@@ -26,6 +26,14 @@ interface Guide {
   isVerified: boolean;
 }
 
+interface Hotel {
+  id: number;
+  name: string;
+  location: string;
+  hotelProfile: string;
+  price: number;
+}
+
 // const guides = [
 //   {
 //     name: "John Doe",
@@ -49,38 +57,38 @@ interface Guide {
 //   },
 // ];
 
-const hotels = [
-  {
-    name: "Seaside Resort",
-    rating: "5 stars",
-    description: "Beachfront",
-    image: require("../assets/images/hotel1.jpg"),
-  },
-  {
-    name: "Mountain Inn",
-    rating: "4 stars",
-    description: "Scenic Views",
-    image: require("../assets/images/hotel2.jpg"),
-  },
-  {
-    name: "Mountain Inn",
-    rating: "4 stars",
-    description: "Scenic Views",
-    image: require("../assets/images/hotel2.jpg"),
-  },
-  {
-    name: "Mountain Inn",
-    rating: "4 stars",
-    description: "Scenic Views",
-    image: require("../assets/images/hotel2.jpg"),
-  },
-  {
-    name: "Mountain Inn",
-    rating: "4 stars",
-    description: "Scenic Views",
-    image: require("../assets/images/hotel2.jpg"),
-  },
-];
+// const hotels = [
+//   {
+//     name: "Seaside Resort",
+//     rating: "5 stars",
+//     description: "Beachfront",
+//     image: require("../assets/images/hotel1.jpg"),
+//   },
+//   {
+//     name: "Mountain Inn",
+//     rating: "4 stars",
+//     description: "Scenic Views",
+//     image: require("../assets/images/hotel2.jpg"),
+//   },
+//   {
+//     name: "Mountain Inn",
+//     rating: "4 stars",
+//     description: "Scenic Views",
+//     image: require("../assets/images/hotel2.jpg"),
+//   },
+//   {
+//     name: "Mountain Inn",
+//     rating: "4 stars",
+//     description: "Scenic Views",
+//     image: require("../assets/images/hotel2.jpg"),
+//   },
+//   {
+//     name: "Mountain Inn",
+//     rating: "4 stars",
+//     description: "Scenic Views",
+//     image: require("../assets/images/hotel2.jpg"),
+//   },
+// ];
 
 const experiences = [
   { id: 1, title: "Delicious", subtitle: "Food tours", icon: "pizza" },
@@ -96,6 +104,7 @@ const UserHome = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [guides, setGuides] = useState<Guide[]>([]);
+  const [hotels, setHotels] = useState<Hotel[]>([]);
 
   const fetchGuideDetails = async () => {
     try {
@@ -142,19 +151,48 @@ const UserHome = () => {
     }
   };
 
+  const fetchHotelDetails = async () => {
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Error", "No token found, please log in again.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await axios.get(`${API_BASE_URL}/hotels/hotelDetails`, {
+        headers: { Authorization: `Bearer ${token.trim()}` },
+      });
+
+      if (response.data && response.data.hotels) {
+        setHotels(response.data.hotels);
+      } else {
+        console.warn("No hotels found in response.");
+      }
+    } catch (error) {
+      console.error("Error fetching hotel details:", error);
+      Alert.alert("Error", "Failed to fetch hotel details.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchGuideDetails();
+    fetchHotelDetails();
   }, []);
 
   // Pull-to-refresh
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchGuideDetails();
+    await fetchHotelDetails();
     setRefreshing(false);
   }, []);
 
   return (
-    <View className="flex-1 bg-white h-fit">
+    <View className="flex-1 bg-white">
       {/* main container */}
       <View className="flex-1">
         {/* Header */}
@@ -207,51 +245,29 @@ const UserHome = () => {
           </View>
 
           {/* Featured Guides */}
-          {/* <View className="px-4">
-            <Text className="text-2xl font-bold text-gray-900 mt-6">
-              Experience the {"                                          "}best
-              destinations
+          <View className="px-4 mt-1">
+            <Text className="text-2xl font-semibold text-gray-900 mt-6">
+              Popular Guides
             </Text>
-            <Text className="text-lg font-medium text-green-700 mt-4">
+            <Text className="text-lg font-semibold text-green-900">
               Take a tour of the hidden places of Nepal with our very experinced
               guides
             </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="mt-3"
-            >
-              {guides.map((guide, index) => (
-                <View key={index} className="mr-4">
-                  <Image
-                    source={guide.image}
-                    className="w-60 h-64 rounded-xl"
-                  />
-                  <Text className="font-semibold mt-2">{guide.name}</Text>
-                  <Text className="text-gray-500 text-sm">
-                    {guide.expertise}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View> */}
-
-          {/* Featured Guides */}
-
+          </View>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             className="mt-3"
           >
             {guides.map((guide, index) => {
-              const imageUrl = `${API_BASE_URL}${guide.profileImage}`;
+              const imageUrl = `${API_BASE_URL}/api/guideVerification/${guide.profileImage}`;
 
               console.log("Final Image URL in React Native:", imageUrl);
 
               return (
                 <TouchableOpacity
                   key={index}
-                  className="mr-4"
+                  className="ml-4"
                   onPress={() =>
                     router.push({
                       pathname: "/Booking",
@@ -280,35 +296,78 @@ const UserHome = () => {
             })}
           </ScrollView>
 
-          <View className="px-4 mt-3">
-            {/* Popular Hotels */}
-            <Text className="text-2xl font-semibold text-gray-900 mt-6">
-              Popular Hotels
-            </Text>
-            <Text className="text-lg font-semibold text-green-900">
-              Make your travel smooth by booking rooms
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="mt-3"
-            >
-              {hotels.map((hotel, index) => (
-                <View key={index} className="mr-4">
-                  <Image
-                    source={hotel.image}
-                    className="w-60 h-64 rounded-xl mr-4"
-                  />
-                  <View>
-                    <Text className="font-semibold mt-3">{hotel.name}</Text>
-                    <Text className="text-gray-500 text-sm">
-                      {hotel.rating}, {hotel.description}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
+          <ScrollView
+            vertical
+            showsVerticalScrollIndicator={false}
+            className="mb-16"
+          >
+            {/* Popular Hotels Section */}
+            <View className="px-4 mt-3">
+              <Text className="text-2xl font-semibold text-gray-900 mt-6">
+                Popular Hotels
+              </Text>
+              <Text className="text-lg font-semibold text-green-900">
+                Make your travel smooth by booking rooms
+              </Text>
+              {loading ? (
+                <ActivityIndicator
+                  size="large"
+                  color="#00CC66"
+                  className="mt-4"
+                />
+              ) : hotels.length === 0 ? (
+                <Text className="text-gray-500 mt-4">No hotels available.</Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  className="mt-3"
+                >
+                  {hotels.map((hotel, index) => {
+                    const imageUrl = `${API_BASE_URL}/api/hotelUploads/${hotel.hotelProfile}`;
+
+                    return (
+                      <TouchableOpacity
+                        key={index}
+                        className="mr-4"
+                        onPress={() =>
+                          router.push({
+                            pathname: "/SpecificHotel",
+                            params: {
+                              hotelId: hotel.id,
+                              hotelName: hotel.name,
+                              hotelLocation: hotel.location,
+                              hotelImage: imageUrl,
+                              hotelPrice: hotel.price,
+                            },
+                          })
+                        }
+                      >
+                        <Image
+                          source={{ uri: imageUrl }}
+                          className="w-60 h-64 rounded-xl mr-4"
+                          onError={(e) =>
+                            console.log(
+                              "Image Load Error:",
+                              e.nativeEvent.error
+                            )
+                          }
+                        />
+                        <View>
+                          <Text className="font-semibold mt-3">
+                            {hotel.name}
+                          </Text>
+                          <Text className="text-gray-500 text-sm">
+                            {hotel.location}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+          </ScrollView>
 
           {/* Experiences */}
           <View className="flex-1 bg-white p-4 mt-3">

@@ -104,6 +104,7 @@ const SignUpScreen = () => {
           <TextInput
             className="border border-gray-300 rounded-lg p-3 bg-gray-100 mt-1"
             placeholder="Enter your username"
+            placeholderTextColor="gray"
             value={name}
             onChangeText={setName}
           />
@@ -114,7 +115,7 @@ const SignUpScreen = () => {
           <Text className="text-gray-700">Email</Text>
           <TextInput
             className="border border-gray-300 rounded-lg p-3 bg-gray-100 mt-1"
-            placeholder="Email"
+            placeholder="Enter your email address"
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
@@ -128,7 +129,8 @@ const SignUpScreen = () => {
           <View className="relative">
             <TextInput
               className="border border-gray-300 rounded-lg p-3 bg-gray-100 mt-1 pr-10"
-              placeholder="Password"
+              placeholder="Enter your password"
+              placeholderTextColor="gray"
               secureTextEntry={!isPasswordVisible}
               value={password}
               onChangeText={setPassword}

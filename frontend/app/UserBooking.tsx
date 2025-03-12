@@ -112,11 +112,12 @@ const UserBooking = () => {
               />
               <View className="flex-1 ml-4">
                 <Text className="text-base font-bold">{item.guide.email}</Text>
-                <Text className="text-sm text-gray-600">
-                  {new Date(item.bookingDate).toDateString()}
-                </Text>
                 <Text className="text-sm text-gray-500">
                   {item.guide.specialization}
+                </Text>
+                <Text className="text-sm text-gray-600">
+                  {new Date(item.startDate).toDateString()} -{" "}
+                  {new Date(item.endDate).toDateString()}
                 </Text>
               </View>
               <TouchableOpacity className="bg-pink-600 px-4 py-1 rounded-md">

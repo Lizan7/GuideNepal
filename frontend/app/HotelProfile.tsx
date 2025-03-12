@@ -1,13 +1,57 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Image } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-
-const router = useRouter();
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import API_BASE_URL from "@/config";
 
 const HotelProfile = () => {
-  const [profileImage, setProfileImage] = useState(null);
+  const router = useRouter();
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [hotelData, setHotelData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchHotelDetails();
+  }, []);
+
+  const fetchHotelDetails = async () => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      if (!token) {
+        Alert.alert("Error", "No authentication token found. Please log in.");
+        return;
+      }
+
+      const response = await axios.get(`${API_BASE_URL}/hotels/hotelDetails`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data.hotels.length > 0) {
+        const hotel = response.data.hotels[0]; // Assuming user has only one hotel
+        setHotelData(hotel);
+        setProfileImage(`${API_BASE_URL}${hotel.profileImage}`); // ✅ Load hotel profile image from backend
+      } else {
+        setError("No hotel data found.");
+      }
+    } catch (error: any) {
+      console.error("Error fetching hotel details:", error);
+      setError("Failed to fetch hotel details.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleImageChange = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -22,10 +66,33 @@ const HotelProfile = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <ActivityIndicator size="large" color="#00CC66" />
+        <Text className="text-gray-500 mt-4">Loading hotel details...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <Text className="text-red-500 text-lg">{error}</Text>
+        <TouchableOpacity
+          onPress={fetchHotelDetails}
+          className="bg-blue-500 px-4 py-2 rounded mt-4"
+        >
+          <Text className="text-white">Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View className="flex flex-col h-full bg-gray-100">
       {/* Header */}
-      <View className="bg-white w-full flex-row items-center p-4">
+      <View className="bg-green-500 p-4 shadow-sm flex-row items-center">
         <TouchableOpacity onPress={() => router.replace("/HotelHome")}>
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
@@ -41,9 +108,12 @@ const HotelProfile = () => {
                 uri: profileImage || "https://via.placeholder.com/100",
               }}
               className="w-24 h-24 rounded-full"
+              onError={() => setProfileImage("https://via.placeholder.com/100")} // ✅ Fallback image if error occurs
             />
           </TouchableOpacity>
-          <Text className="text-xl font-bold mt-4">Martijn Grooten</Text>
+          <Text className="text-xl font-bold mt-4">
+            {hotelData?.name || "Hotel Name"}
+          </Text>
         </View>
 
         {/* Profile Details */}
@@ -51,26 +121,60 @@ const HotelProfile = () => {
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Email</Text>
             <Text className="text-gray-500 text-base">
-              martijn.grooten@gmail.com
+              {hotelData?.email || "N/A"}
             </Text>
           </View>
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Contact</Text>
-            <Text className="text-gray-500 text-base">+123456789</Text>
+            <Text className="text-gray-500 text-base">
+              {hotelData?.phoneNumber || "N/A"}
+            </Text>
           </View>
           <View className="flex flex-row justify-between">
-            <Text className="text-xl text-gray-500">Specialization</Text>
-            <Text className="text-gray-500 text-base">Hotel Management</Text>
+            <Text className="text-xl text-gray-500">Itineraries</Text>
+            <Text className="text-gray-500 text-base">
+              {hotelData?.itineraries || "N/A"}
+            </Text>
           </View>
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Address</Text>
-            <Text className="text-gray-500 text-base">Kathmandu, Nepal</Text>
+            <Text className="text-gray-500 text-base">
+              {hotelData?.location || "N/A"}
+            </Text>
+          </View>
+          <View className="flex flex-row justify-between">
+            <Text className="text-xl text-gray-500">Rooms Available</Text>
+            <Text className="text-gray-500 text-base">
+              {hotelData?.roomsAvailable || "N/A"}
+            </Text>
+          </View>
+          <View className="flex flex-row justify-between">
+            <Text className="text-xl text-gray-500">Price</Text>
+            <Text className="text-gray-500 text-base">
+              {hotelData?.price ? `$${hotelData.price}` : "N/A"}
+            </Text>
           </View>
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Status</Text>
-            <Text className="text-gray-500 text-base">Verified</Text>
+            <Text
+              className={`text-base font-bold ${
+                hotelData?.isVerified ? "text-green-500" : "text-red-500"
+              }`}
+            >
+              {hotelData?.isVerified ? "Verified" : "Pending Verification"}
+            </Text>
           </View>
         </View>
+
+        {/* Edit or Verify Button */}
+        <TouchableOpacity
+          className="bg-green-500 px-6 py-3 rounded-lg mt-14 ml-12"
+          onPress={() => router.push("./hotelRegister")}
+        >
+          <Text className="text-white font-semibold text-center">
+            {hotelData ? "Edit" : "Verify"}
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

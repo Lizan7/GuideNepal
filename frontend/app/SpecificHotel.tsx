@@ -9,6 +9,8 @@ import {
   Modal,
   TouchableWithoutFeedback,
   FlatList,
+  TextInput,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -16,23 +18,22 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import API_BASE_URL from "@/config";
-import { WebView } from "react-native-webview";
 
-const Booking = () => {
+const HotelBooking = () => {
   const router = useRouter();
-  const { guideId, guideEmail, guideSpecialization, guideImage } =
+  const { hotelId, hotelName, hotelLocation, hotelPrice, hotelImage } =
     useLocalSearchParams();
 
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
+  const [rooms, setRooms] = useState("1");
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userId, setUserId] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
-  const [paymentUrl, setPaymentUrl] = useState("");
-  const [selectedTab, setSelectedTab] = useState("About"); // "About" or "Reviews"
+  const [selectedTab, setSelectedTab] = useState("About");
+  const [hotelDetails, setHotelDetails] = useState(null);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -42,8 +43,25 @@ const Booking = () => {
     fetchUserId();
   }, []);
 
-  // ✅ Function to handle booking after payment
-  const confirmBooking = async () => {
+  // ✅ Fetch Hotel Details from API
+  useEffect(() => {
+    const fetchHotelDetails = async () => {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        const response = await axios.get(`${API_BASE_URL}/hotels/${hotelId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setHotelDetails(response.data.hotel);
+      } catch (error) {
+        console.error("Error fetching hotel details:", error);
+      }
+    };
+
+    fetchHotelDetails();
+  }, [hotelId]);
+
+  // ✅ Function to confirm hotel booking
+  const confirmHotelBooking = async () => {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem("token");
@@ -62,56 +80,43 @@ const Booking = () => {
 
       const bookingData = {
         userId: parseInt(userId),
-        guideId: parseInt(guideId),
+        hotelId: parseInt(hotelId),
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-        paymentStatus: true, // ✅ Payment confirmed
+        rooms: parseInt(rooms),
+        paymentStatus: false,
       };
 
-      await axios.post(`${API_BASE_URL}/booking/create`, bookingData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      console.log("🔹 Sending Booking Data:", bookingData);
+
+      const response = await axios.post(
+        `${API_BASE_URL}/hotelbooking/hotel/create`,
+        bookingData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("✅ Booking Success:", response.data);
 
       Alert.alert(
         "Booking Confirmed ✅",
-        `Your booking with ${guideEmail} from ${startDate.toDateString()} to ${endDate.toDateString()} has been confirmed!`
+        `Your stay at ${
+          hotelDetails?.name
+        } from ${startDate.toDateString()} to ${endDate.toDateString()} has been booked!`
       );
 
       setModalVisible(false);
       router.push("/UserHome");
     } catch (error) {
-      Alert.alert("Booking Failed ❌", "An error occurred while booking.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ Function to handle Khalti Payment
-  const handleKhaltiPayment = async () => {
-    try {
-      setLoading(true);
-      const amount = 1000 * 100; // Amount in paisa (Rs. 1000)
-
-      const response = await axios.post(
-        `${API_BASE_URL}/khalti/initiate-payment`,
-        {
-          amount,
-          return_url: `${API_BASE_URL}/khalti/payment-success`,
-        }
+      console.error("❌ Booking Error:", error.response?.data || error.message);
+      Alert.alert(
+        "Booking Failed ❌",
+        error.response?.data?.message || "An error occurred while booking."
       );
-
-      if (response.data && response.data.payment_url) {
-        setPaymentUrl(response.data.payment_url);
-        setPaymentModalVisible(true); // ✅ Open payment modal
-      } else {
-        Alert.alert("Error", "Failed to initiate Khalti payment.");
-      }
-    } catch (error) {
-      console.error("Khalti Payment Error:", error);
-      Alert.alert("Payment Error ❌", "Could not start Khalti payment.");
     } finally {
       setLoading(false);
     }
@@ -123,19 +128,19 @@ const Booking = () => {
       id: "1",
       name: "John Doe",
       rating: "⭐⭐⭐⭐⭐",
-      comment: "Amazing guide! Very professional and knowledgeable.",
+      comment: "Excellent hotel! Very clean and well managed.",
     },
     {
       id: "2",
       name: "Jane Smith",
       rating: "⭐⭐⭐⭐",
-      comment: "Had a great time exploring with this guide!",
+      comment: "Great location and friendly staff!",
     },
     {
       id: "3",
       name: "Michael Lee",
       rating: "⭐⭐⭐⭐⭐",
-      comment: "Very friendly and accommodating!",
+      comment: "Best experience ever! Highly recommend.",
     },
   ];
 
@@ -146,26 +151,26 @@ const Booking = () => {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="black" />
         </TouchableOpacity>
-        <Text className="text-xl font-bold">Guide Details</Text>
+        <Text className="text-xl font-bold">Hotel Details</Text>
         <View />
       </View>
 
-      {/* Guide Info */}
+      {/* Hotel Info */}
       <View className="items-center mt-6">
         <Image
-          source={{ uri: guideImage }}
-          style={{ width: 150, height: 150, borderRadius: 10 }}
+          source={{ uri: hotelImage }}
+          style={{ width: 200, height: 150, borderRadius: 10 }}
         />
-        <Text className="text-lg font-semibold mt-2">{guideEmail}</Text>
-        <Text className="text-gray-500">{guideSpecialization}</Text>
+        <Text className="text-lg font-semibold mt-2">{hotelName}</Text>
+        <Text className="text-gray-500">{hotelLocation}</Text>
+        <Text className="text-lg font-bold mt-2">Rs. {hotelPrice} / night</Text>
       </View>
 
       {/* Action Buttons */}
       <View className="mt-6 flex-row justify-around">
-        {/* Chat Button */}
         <TouchableOpacity
           className="bg-gray-200 px-12 py-6 rounded-2xl"
-          onPress={() => router.push(`/Chat?guideId=${guideId}`)}
+          onPress={() => router.push(`/Chat?hotelId=${hotelId}`)}
         >
           <Ionicons
             name="chatbubble-ellipses-outline"
@@ -174,7 +179,6 @@ const Booking = () => {
           />
         </TouchableOpacity>
 
-        {/* Book Button (Opens Modal) */}
         <TouchableOpacity
           className="bg-blue-400 px-12 py-6 rounded-3xl"
           onPress={() => setModalVisible(true)}
@@ -183,94 +187,8 @@ const Booking = () => {
         </TouchableOpacity>
       </View>
 
-      {/* ✅ Booking Modal */}
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
-          <View className="flex-1 justify-center items-center bg-blue-300 bg-opacity-50">
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View className="bg-white p-6 rounded-lg w-11/12">
-                <Text className="text-xl font-bold text-center">
-                  Book Guide
-                </Text>
-
-                {/* Start & End Date Picker */}
-                <View className="mt-4">
-                  <Text className="text-lg font-semibold">Start Date</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowStartPicker(true)}
-                    className="p-3 border border-gray-300 rounded-md mt-2"
-                  >
-                    <Text className="text-gray-700">
-                      {startDate.toDateString()}
-                    </Text>
-                  </TouchableOpacity>
-                  {showStartPicker && (
-                    <DateTimePicker
-                      value={startDate}
-                      mode="date"
-                      display="default"
-                      onChange={(event, selectedDate) => {
-                        setShowStartPicker(false);
-                        if (selectedDate) setStartDate(selectedDate);
-                      }}
-                    />
-                  )}
-                </View>
-
-                {/* End Date Picker */}
-                <View className="mt-4">
-                  <Text className="text-lg font-semibold">End Date</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowEndPicker(true)}
-                    className="p-3 border border-gray-300 rounded-md mt-2"
-                  >
-                    <Text className="text-gray-700">
-                      {endDate.toDateString()}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {showEndPicker && (
-                    <DateTimePicker
-                      value={endDate}
-                      mode="date"
-                      display="default"
-                      onChange={(event, selectedDate) => {
-                        setShowEndPicker(false);
-                        if (selectedDate) {
-                          setEndDate(selectedDate);
-                        }
-                      }}
-                    />
-                  )}
-                </View>
-
-                {/* Khalti Payment Button */}
-                <TouchableOpacity
-                  className="mt-6 bg-purple-600 p-3 rounded-lg items-center"
-                  onPress={handleKhaltiPayment}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text className="text-white font-bold">
-                      Pay with Khalti
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
       {/* ✅ About & Reviews Section */}
       <View className="mt-6">
-        {/* Tabs */}
         <View className="flex-row justify-around border-b border-gray-300">
           <TouchableOpacity
             className={`pb-2 ${
@@ -290,22 +208,15 @@ const Booking = () => {
           </TouchableOpacity>
         </View>
 
-        {/* About Section */}
         {selectedTab === "About" && (
-          <View className="mt-4 p-3 gap-5">
+          <ScrollView className="mt-4 p-3">
             <Text className="text-gray-600">
-              This guide is an expert in cultural and adventure tours. They have
-              over 10 years of experience leading travelers through the most
-              breathtaking locations, ensuring a safe and unforgettable
-              experience. Lorem ipsum dolor sit amet consectetur, adipisicing
-              elit. Repellendus eum omnis maiores assumenda quos a maxime
-              quisquam dolorum provident velit? Iste quia animi dignissimos esse
-              pariatur rerum, optio molestias sit.
+              {hotelDetails?.description ||
+                "This hotel provides luxurious and comfortable stays with breathtaking views, world-class amenities, and top-notch service. Perfect for travelers looking for relaxation and adventure."}
             </Text>
-          </View>
+          </ScrollView>
         )}
 
-        {/* Reviews Section */}
         {selectedTab === "Reviews" && (
           <FlatList
             data={reviews}
@@ -320,8 +231,95 @@ const Booking = () => {
           />
         )}
       </View>
+      {/* ✅ Booking Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+          <View className="flex-1 justify-center items-center bg-blue-300 bg-opacity-50">
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View className="bg-white p-6 rounded-lg w-11/12">
+                <Text className="text-xl font-bold text-center">
+                  Book Hotel
+                </Text>
+
+                {/* Start & End Date Picker */}
+                <View className="mt-4">
+                  <Text className="text-lg font-semibold">Start Date</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowStartPicker(true)}
+                    className="p-3 border border-gray-300 rounded-md mt-2"
+                  >
+                    <Text className="text-gray-700">
+                      {startDate.toDateString()}
+                    </Text>
+                  </TouchableOpacity>
+                  {showStartPicker && (
+                    <DateTimePicker
+                      value={startDate}
+                      mode="date"
+                      onChange={(event, selectedDate) => {
+                        setShowStartPicker(false);
+                        if (selectedDate) setStartDate(selectedDate);
+                      }}
+                    />
+                  )}
+                </View>
+
+                <View className="mt-4">
+                  <Text className="text-lg font-semibold">End Date</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowEndPicker(true)}
+                    className="p-3 border border-gray-300 rounded-md mt-2"
+                  >
+                    <Text className="text-gray-700">
+                      {endDate.toDateString()}
+                    </Text>
+                  </TouchableOpacity>
+                  {showEndPicker && (
+                    <DateTimePicker
+                      value={endDate}
+                      mode="date"
+                      onChange={(event, selectedDate) => {
+                        setShowEndPicker(false);
+                        if (selectedDate) setEndDate(selectedDate);
+                      }}
+                    />
+                  )}
+                </View>
+
+                {/* Rooms Input */}
+                <View className="mt-4">
+                  <Text className="text-lg font-semibold">Rooms</Text>
+                  <TextInput
+                    className="p-3 border border-gray-300 rounded-md mt-2"
+                    keyboardType="numeric"
+                    value={rooms}
+                    onChangeText={setRooms}
+                  />
+                </View>
+
+                {/* Submit Booking Button */}
+                <TouchableOpacity
+                  className="mt-6 bg-green-600 p-3 rounded-lg items-center"
+                  onPress={confirmHotelBooking}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text className="text-white font-bold">Submit Booking</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 };
 
-export default Booking;
+export default HotelBooking;

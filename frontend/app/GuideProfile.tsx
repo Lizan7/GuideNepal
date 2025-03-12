@@ -32,7 +32,6 @@ const GuideProfile = () => {
   const [loading, setLoading] = useState(true);
 
   const [guideDetails, setGuideDetails] = useState({
-    name: "",
     email: "",
     location: "",
     phoneNumber: "",
@@ -45,6 +44,7 @@ const GuideProfile = () => {
   const fetchGuideDetails = async () => {
     try {
       setLoading(true);
+
       const token = await AsyncStorage.getItem("token");
       if (!token) {
         Alert.alert("Error", "No token found, please log in again.");
@@ -52,19 +52,25 @@ const GuideProfile = () => {
         return;
       }
 
+      console.log("API Request URL:", `${API_BASE_URL}/guides/details`);
+      console.log("Retrieved Token:", token);
+
       const response = await axios.get(`${API_BASE_URL}/guides/details`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token.trim()}`,
         },
       });
 
+      console.log("Response Status:", response.status);
+      console.log("Response Data:", response.data);
+      console.log("Response Headers:", response.headers);
+
       if (response.data) {
         setGuideDetails({
-          name: response.data.user.name,
-          email: response.data.user.email,
-          location: response.data.location,
-          phoneNumber: response.data.phoneNumber,
-          specialization: response.data.specialization,
+          email: response.data.user?.email || "N/A",
+          location: response.data.location || "N/A",
+          phoneNumber: response.data.phoneNumber || "N/A",
+          specialization: response.data.specialization || "N/A",
           profileImage: response.data.profileImage
             ? `${API_BASE_URL}${response.data.profileImage}`
             : "",
@@ -73,10 +79,20 @@ const GuideProfile = () => {
             : "",
           isVerified: response.data.isVerified,
         });
+      } else {
+        console.warn("No guide details found in response.");
       }
     } catch (error) {
-      console.error("Error fetching guide details:", error);
-      Alert.alert("Error", "Failed to fetch guide details.");
+      if (axios.isAxiosError(error)) {
+        console.error("Axios Error:", error.response?.data || error.message);
+        Alert.alert(
+          "Error",
+          error.response?.data?.message || "Failed to fetch guide details."
+        );
+      } else {
+        console.error("Unexpected Error:", error);
+        Alert.alert("Error", "An unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -125,7 +141,7 @@ const GuideProfile = () => {
                 </View>
               )}
               <Text className="text-xl font-bold mt-4">
-                {guideDetails.name}
+                {guideDetails.email}
               </Text>
             </View>
 
