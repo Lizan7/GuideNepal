@@ -38,7 +38,7 @@ const GuideProfile = () => {
 
       console.log("Fetching Guide Details...");
 
-      const response = await axios.get(`${API_BASE_URL}/guides/details`, {
+      const response = await axios.get(`${API_BASE_URL}/guides/profile`, {
         headers: { Authorization: `Bearer ${token.trim()}` },
       });
 
