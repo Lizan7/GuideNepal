@@ -66,13 +66,14 @@ const createUserBooking = async (req, res) => {
   }
 };
 
-// Get All Bookings for a User
+// Get All Bookings (Guides and Hotels) for a User
 const getUserBookings = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = parseInt(req.user.id);
 
-    const bookings = await prisma.userBooking.findMany({
-      where: { userId: parseInt(userId) },
+    // Fetch Guide Bookings
+    const guideBookings = await prisma.userBooking.findMany({
+      where: { userId },
       include: {
         guide: {
           select: {
@@ -85,6 +86,29 @@ const getUserBookings = async (req, res) => {
       },
       orderBy: { startDate: "desc" },
     });
+
+    // Fetch Hotel Bookings
+    const hotelBookings = await prisma.hotelBooking.findMany({
+      where: { userId },
+      include: {
+        hotel: {
+          select: {
+            id: true,
+            name: true,
+            location: true,
+            price: true,
+            profileImage: true,
+          },
+        },
+      },
+      orderBy: { startDate: "desc" },
+    });
+
+    // Combine bookings
+    const bookings = {
+      guideBookings,
+      hotelBookings,
+    };
 
     return res.status(200).json({ success: true, bookings });
   } catch (error) {
