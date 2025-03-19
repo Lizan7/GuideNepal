@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -24,6 +25,7 @@ const UserBooking = () => {
   const [bookingType, setBookingType] = useState(null);
   const [filterType, setFilterType] = useState("all");
   const refRBSheet = useRef();
+  const [showDropdown, setShowDropdown] = useState(false);
 
   const fetchBookings = async () => {
     try {
@@ -126,36 +128,69 @@ const UserBooking = () => {
         <Text className="text-lg font-bold text-gray-800">
           Upcoming Bookings
         </Text>
-        <View className="flex-row gap-2">
-          <TouchableOpacity onPress={() => setFilterType("all")}>
-            <Text
-              className={`${
-                filterType === "all" ? "text-pink-600" : "text-gray-500"
-              }`}
-            >
-              All
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setFilterType("guide")}>
-            <Text
-              className={`${
-                filterType === "guide" ? "text-pink-600" : "text-gray-500"
-              }`}
-            >
-              Guides
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setFilterType("hotel")}>
-            <Text
-              className={`${
-                filterType === "hotel" ? "text-pink-600" : "text-gray-500"
-              }`}
-            >
-              Hotels
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity 
+          onPress={() => setShowDropdown(!showDropdown)}
+          className="flex-row items-center"
+        >
+          <Text className="text-gray-700 mr-2">
+            {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
+          </Text>
+          <Ionicons 
+            name={showDropdown ? "chevron-up" : "chevron-down"} 
+            size={20} 
+            color="black" 
+          />
+        </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={showDropdown}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDropdown(false)}
+      >
+        <TouchableOpacity 
+          style={{ flex: 1 }} 
+          activeOpacity={1} 
+          onPress={() => setShowDropdown(false)}
+        >
+          <View className="absolute right-6 top-20 bg-white rounded-lg shadow-lg w-32">
+            <TouchableOpacity 
+              className="p-3 border-b border-gray-200"
+              onPress={() => {
+                setFilterType("all");
+                setShowDropdown(false);
+              }}
+            >
+              <Text className={`${filterType === "all" ? "text-pink-600" : "text-gray-700"}`}>
+                All
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="p-3 border-b border-gray-200"
+              onPress={() => {
+                setFilterType("guide");
+                setShowDropdown(false);
+              }}
+            >
+              <Text className={`${filterType === "guide" ? "text-pink-600" : "text-gray-700"}`}>
+                Guides
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              className="p-3"
+              onPress={() => {
+                setFilterType("hotel");
+                setShowDropdown(false);
+              }}
+            >
+              <Text className={`${filterType === "hotel" ? "text-pink-600" : "text-gray-700"}`}>
+                Hotels
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {loading ? (
         <View className="flex-1 items-center justify-center">

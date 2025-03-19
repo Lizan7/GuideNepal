@@ -11,49 +11,40 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
 import API_BASE_URL from "@/config";
+
+interface Booking {
+  id: string;
+  status: string;
+  startDate: string;
+  user?: {
+    name: string;
+  };
+}
 
 const GuideHome = () => {
   const router = useRouter();
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(false); // Changed to false since we're not fetching
 
-  // Fetch booking details from the /guide endpoint
+  // Temporary static data for testing
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        setLoading(true);
-        const token = await AsyncStorage.getItem("token");
-        if (!token) {
-          Alert.alert("Error", "User authentication failed. Please log in.");
-          setLoading(false);
-          return;
-        }
-        // Call the backend route to fetch bookings for the guide
-        const response = await axios.get(`${API_BASE_URL}/booking/guide`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        console.log("Fetched Bookings:", response.data);
-        if (response.data && response.data.bookings) {
-          setBookings(response.data.bookings);
-        } else {
-          setBookings([]);
-        }
-      } catch (error) {
-        console.error(
-          "Error fetching bookings:",
-          error.response?.data || error.message
-        );
-        Alert.alert("Error", "Failed to fetch booking details.");
-      } finally {
-        setLoading(false);
+    // Simulate some static data
+    const staticBookings: Booking[] = [
+      {
+        id: "1",
+        status: "Pending",
+        startDate: new Date().toISOString(),
+        user: { name: "Test User 1" }
+      },
+      {
+        id: "2",
+        status: "Completed",
+        startDate: new Date().toISOString(),
+        user: { name: "Test User 2" }
       }
-    };
-
-    fetchBookings();
+    ];
+    setBookings(staticBookings);
   }, []);
 
   // Compute booking counts based on the fetched data
