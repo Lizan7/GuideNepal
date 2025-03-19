@@ -1,45 +1,29 @@
-import React, {
-  useState,
-  useRef,
-  useMemo,
-  useEffect,
-  useCallback,
-} from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   Image,
-  Alert,
-  RefreshControl,
-  ScrollView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import BottomSheet from "@gorhom/bottom-sheet";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import API_BASE_URL from "@/config";
 
 const GuideProfile = () => {
   const router = useRouter();
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ["50%"], []);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [guideData, setGuideData] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [guideDetails, setGuideDetails] = useState({
-    email: "",
-    location: "",
-    phoneNumber: "",
-    specialization: "",
-    profileImage: "",
-    verificationImage: "",
-    isVerified: false,
-  });
+  useEffect(() => {
+    fetchGuideDetails();
+  }, []);
 
   const fetchGuideDetails = async () => {
     try {
@@ -47,146 +31,153 @@ const GuideProfile = () => {
 
       const token = await AsyncStorage.getItem("token");
       if (!token) {
-        Alert.alert("Error", "No token found, please log in again.");
+        Alert.alert("Error", "No authentication token found. Please log in.");
         setLoading(false);
         return;
       }
 
-      console.log("API Request URL:", `${API_BASE_URL}/guides/details`);
-      console.log("Retrieved Token:", token);
+      console.log("Fetching Guide Details...");
 
       const response = await axios.get(`${API_BASE_URL}/guides/details`, {
-        headers: {
-          Authorization: `Bearer ${token.trim()}`,
-        },
+        headers: { Authorization: `Bearer ${token.trim()}` },
       });
 
-      console.log("Response Status:", response.status);
-      console.log("Response Data:", response.data);
-      console.log("Response Headers:", response.headers);
+      console.log("API Response:", response.data);
 
       if (response.data) {
-        setGuideDetails({
-          email: response.data.user?.email || "N/A",
-          location: response.data.location || "N/A",
-          phoneNumber: response.data.phoneNumber || "N/A",
-          specialization: response.data.specialization || "N/A",
-          profileImage: response.data.profileImage
-            ? `${API_BASE_URL}${response.data.profileImage}`
-            : "",
-          verificationImage: response.data.verificationImage
-            ? `${API_BASE_URL}${response.data.verificationImage}`
-            : "",
-          isVerified: response.data.isVerified,
-        });
+        setGuideData(response.data);
+
+        // Check if profileImage is a full URL or needs to be prefixed with API_BASE_URL
+        if (response.data.profileImage) {
+          const imageUrl = response.data.profileImage.startsWith("http")
+            ? response.data.profileImage
+            : `${API_BASE_URL}${response.data.profileImage}`;
+
+          setProfileImage(imageUrl);
+        }
       } else {
-        console.warn("No guide details found in response.");
+        setError("No guide data found.");
       }
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error("Axios Error:", error.response?.data || error.message);
-        Alert.alert(
-          "Error",
-          error.response?.data?.message || "Failed to fetch guide details."
-        );
-      } else {
-        console.error("Unexpected Error:", error);
-        Alert.alert("Error", "An unexpected error occurred.");
-      }
+    } catch (error: any) {
+      console.error("Error fetching guide details:", error);
+      setError("Failed to fetch guide details.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchGuideDetails();
-  }, []);
+  const handleImageChange = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchGuideDetails();
-    setRefreshing(false);
-  }, []);
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text className="text-gray-500 mt-4">Loading guide details...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View className="flex-1 justify-center items-center">
+        <Text className="text-red-500 text-lg">{error}</Text>
+        <TouchableOpacity
+          onPress={fetchGuideDetails}
+          className="bg-blue-500 px-4 py-2 rounded mt-4"
+        >
+          <Text className="text-white">Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        className="flex-1 bg-gray-100"
-      >
-        <View className="flex-row items-center p-4 bg-[#3B82F6] gap-4">
-          <TouchableOpacity onPress={() => router.replace("/GuideHome")}>
-            <Ionicons name="arrow-back" size={24} color="white" />
+    <View className="flex flex-col h-full bg-gray-100">
+      {/* Header */}
+      <View className="bg-blue-500 p-4 shadow-sm flex-row items-center">
+        <TouchableOpacity onPress={() => router.replace("/GuideHome")}>
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
+        <Text className="text-white text-lg font-bold ml-4">My Profile</Text>
+      </View>
+
+      {/* Profile Section */}
+      <View className="bg-white p-6 w-full max-w-md mx-auto rounded-lg">
+        <View className="items-center">
+          <TouchableOpacity onPress={handleImageChange}>
+            <Image
+              source={{
+                uri: profileImage || "https://via.placeholder.com/100",
+              }}
+              className="w-24 h-24 rounded-full"
+              onError={() => setProfileImage("https://via.placeholder.com/100")}
+            />
           </TouchableOpacity>
-          <Text className="font-bold text-lg text-white">Profile</Text>
+          <Text className="text-xl font-bold mt-4">
+            {guideData?.name || "Guide Name"}
+          </Text>
         </View>
 
-        {loading ? (
-          <View className="flex-1 justify-center items-center">
-            <ActivityIndicator size="large" color="#3B82F6" />
+        {/* Profile Details */}
+        <View className="mt-8 space-y-4 gap-10">
+          <View className="flex flex-row justify-between">
+            <Text className="text-xl text-gray-500">Email</Text>
+            <Text className="text-gray-500 text-base">
+              {guideData?.email || "N/A"}
+            </Text>
           </View>
-        ) : (
-          <View className="bg-white py-6 rounded-lg">
-            <View className="justify-center items-center">
-              {guideDetails.profileImage ? (
-                <Image
-                  source={{ uri: guideDetails.profileImage }}
-                  className="w-32 h-32 rounded-full"
-                />
-              ) : (
-                <View className="w-24 h-24 rounded-full bg-gray-300 items-center justify-center">
-                  <Ionicons name="camera-outline" size={40} color="white" />
-                </View>
-              )}
-              <Text className="text-xl font-bold mt-4">
-                {guideDetails.email}
-              </Text>
-            </View>
-
-            <View className="mt-10 w-fit flex gap-16">
-              <View className="flex-row gap-20 justify-around">
-                <Text>Email</Text>
-                <Text className="text-gray-600">{guideDetails.email}</Text>
-              </View>
-              <View className="flex-row gap-20 justify-around">
-                <Text>Address</Text>
-                <Text className="text-gray-600">{guideDetails.location}</Text>
-              </View>
-              <View className="flex-row gap-20 justify-around">
-                <Text>Contact</Text>
-                <Text className="text-gray-600">
-                  {guideDetails.phoneNumber}
-                </Text>
-              </View>
-              <View className="flex-row gap-20 justify-around">
-                <Text>Speciality</Text>
-                <Text className="text-gray-600">
-                  {guideDetails.specialization}
-                </Text>
-              </View>
-              <View className="flex-row gap-20 justify-around">
-                <Text>Status</Text>
-                <Text className="text-gray-600">
-                  {guideDetails.isVerified ? "Verified" : "Unverified"}
-                </Text>
-              </View>
-            </View>
-
-            {/* Verify Button */}
-            <TouchableOpacity
-              className="bg-blue-500 px-6 py-3 rounded-lg mt-14 w-[310px] ml-12"
-              onPress={() => router.push("./guideRegister")}
+          <View className="flex flex-row justify-between">
+            <Text className="text-xl text-gray-500">Contact</Text>
+            <Text className="text-gray-500 text-base">
+              {guideData?.phoneNumber || "N/A"}
+            </Text>
+          </View>
+          <View className="flex flex-row justify-between">
+            <Text className="text-xl text-gray-500">Specialization</Text>
+            <Text className="text-gray-500 text-base">
+              {guideData?.specialization || "N/A"}
+            </Text>
+          </View>
+          <View className="flex flex-row justify-between">
+            <Text className="text-xl text-gray-500">Location</Text>
+            <Text className="text-gray-500 text-base">
+              {guideData?.location || "N/A"}
+            </Text>
+          </View>
+          <View className="flex flex-row justify-between">
+            <Text className="text-xl text-gray-500">Status</Text>
+            <Text
+              className={`text-base font-bold ${
+                guideData?.isVerified ? "text-green-500" : "text-red-500"
+              }`}
             >
-              <Text className="text-white font-semibold text-center">
-                Verify
-              </Text>
-            </TouchableOpacity>
+              {guideData?.isVerified ? "Verified" : "Pending Verification"}
+            </Text>
           </View>
-        )}
-      </ScrollView>
-    </GestureHandlerRootView>
+        </View>
+
+        {/* Edit or Verify Button */}
+        <TouchableOpacity
+          className="bg-blue-500 px-6 py-3 rounded-lg mt-14 w-fit"
+          onPress={() => router.push("./guideRegister")}
+        >
+          <Text className="text-white font-semibold text-center">
+            {guideData ? "Edit" : "Verify"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 

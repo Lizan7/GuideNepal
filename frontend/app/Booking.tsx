@@ -42,46 +42,53 @@ const Booking = () => {
     fetchUserId();
   }, []);
 
-  // ✅ Function to handle booking after payment
-  const confirmBooking = async () => {
+  const confirmBooking = async (pidx: string) => {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem("token");
 
-      if (!token || !userId) {
-        Alert.alert("Error", "User authentication failed. Please log in.");
-        setLoading(false);
-        return;
-      }
-
-      if (startDate > endDate) {
-        Alert.alert("Invalid Dates ❌", "Start date must be before end date.");
-        setLoading(false);
-        return;
-      }
-
-      const bookingData = {
-        userId: parseInt(userId),
-        guideId: parseInt(guideId),
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        paymentStatus: true, // ✅ Payment confirmed
-      };
-
-      await axios.post(`${API_BASE_URL}/booking/create`, bookingData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      Alert.alert(
-        "Booking Confirmed ✅",
-        `Your booking with ${guideEmail} from ${startDate.toDateString()} to ${endDate.toDateString()} has been confirmed!`
+      // Verify payment first before confirming booking
+      const verifyResponse = await axios.post(
+        `${API_BASE_URL}/khalti/verify-payment`,
+        { pidx },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
       );
 
-      setModalVisible(false);
-      router.push("/UserHome");
+      if (verifyResponse.data.success) {
+        const bookingData = {
+          userId: parseInt(userId),
+          guideId: parseInt(guideId),
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          paymentStatus: true, // Payment confirmed
+          transactionId: verifyResponse.data.transaction.transaction_id, // Optional but recommended
+        };
+
+        await axios.post(`${API_BASE_URL}/booking/create`, bookingData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        Alert.alert(
+          "Booking Confirmed ✅",
+          `Your booking with ${guideEmail} from ${startDate.toDateString()} to ${endDate.toDateString()} has been confirmed!`
+        );
+
+        setModalVisible(false);
+        router.push("/UserHome");
+      } else {
+        Alert.alert(
+          "Payment Verification Failed ❌",
+          verifyResponse.data.message
+        );
+      }
     } catch (error) {
       Alert.alert("Booking Failed ❌", "An error occurred while booking.");
     } finally {
@@ -93,24 +100,50 @@ const Booking = () => {
   const handleKhaltiPayment = async () => {
     try {
       setLoading(true);
-      const amount = 1000 * 100; // Amount in paisa (Rs. 1000)
+      const token = await AsyncStorage.getItem("token");
+
+      if (!token || !userId) {
+        Alert.alert("Error", "User authentication failed. Please log in.");
+        setLoading(false);
+        return;
+      }
+
+      const amount = 1000 * 100;
 
       const response = await axios.post(
         `${API_BASE_URL}/khalti/initiate-payment`,
         {
           amount,
-          return_url: `${API_BASE_URL}/khalti/payment-success`,
+          orderId: `order_${new Date().getTime()}_${Math.floor(
+            Math.random() * 1000
+          )}`,
+          orderName: `Guide Booking - ${guideEmail}`,
+          customerInfo: {
+            name: "User",
+            email: "user@example.com",
+            phone: "9800000001",
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         }
       );
 
+      console.log("Khalti Payment Response:", response.data);
+
       if (response.data && response.data.payment_url) {
         setPaymentUrl(response.data.payment_url);
-        setPaymentModalVisible(true); // ✅ Open payment modal
+        setModalVisible(false);
+        setPaymentModalVisible(true);
+        // Payment initiated successfully; no error alert needed.
       } else {
         Alert.alert("Error", "Failed to initiate Khalti payment.");
       }
     } catch (error) {
-      console.error("Khalti Payment Error:", error);
+      console.error("Khalti Payment Error:", error.response?.data);
       Alert.alert("Payment Error ❌", "Could not start Khalti payment.");
     } finally {
       setLoading(false);
@@ -251,7 +284,8 @@ const Booking = () => {
 
                 {/* Khalti Payment Button */}
                 <TouchableOpacity
-                  className="mt-6 bg-purple-600 p-3 rounded-lg items-center"
+                  disabled={loading} // Disable button when loading is true
+                  className="mt-6 bg-green-600 p-3 rounded-lg items-center"
                   onPress={handleKhaltiPayment}
                 >
                   {loading ? (
@@ -266,6 +300,31 @@ const Booking = () => {
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ✅ Khalti Payment Modal */}
+      <Modal
+        visible={paymentModalVisible}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={() => setPaymentModalVisible(false)}
+      >
+        <WebView
+          source={{ uri: paymentUrl }}
+          onNavigationStateChange={(navState) => {
+            console.log("Navigating to:", navState.url);
+            if (navState.url.includes("payment-success")) {
+              setPaymentModalVisible(false); // ✅ Close modal after successful payment
+              confirmBooking(); // ✅ Confirm booking after successful payment
+            }
+          }}
+        />
+        <TouchableOpacity
+          className="absolute top-10 right-5 p-3 rounded-full"
+          onPress={() => setPaymentModalVisible(false)}
+        >
+          <Ionicons name="close" size={24} color="black" />
+        </TouchableOpacity>
       </Modal>
 
       {/* ✅ About & Reviews Section */}

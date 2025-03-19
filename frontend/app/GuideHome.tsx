@@ -1,29 +1,68 @@
-import React from "react";
-import { View, Text, Image, FlatList, TouchableOpacity } from "react-native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  Image,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-
-const Tab = createBottomTabNavigator();
-const router = useRouter(); // Router for Navigation
-
-const bookingHistory = [
-  { id: "1", user: "Alice Brown", date: "2024-02-15", status: "Completed" },
-  { id: "2", user: "Mark Johnson", date: "2024-02-10", status: "Pending" },
-  { id: "3", user: "Emily White", date: "2024-01-28", status: "Cancelled" },
-  { id: "4", user: "Alice Brown", date: "2024-02-15", status: "Pending" },
-  { id: "5", user: "Alice Brown", date: "2024-02-15", status: "Completed" },
-];
-
-const totalBookings = bookingHistory.length;
-const pendingBookings = bookingHistory.filter(
-  (b) => b.status === "Pending"
-).length;
-const completedBookings = bookingHistory.filter(
-  (b) => b.status === "Completed"
-).length;
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import API_BASE_URL from "@/config";
 
 const GuideHome = () => {
+  const router = useRouter();
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch booking details from the /guide endpoint
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        const token = await AsyncStorage.getItem("token");
+        if (!token) {
+          Alert.alert("Error", "User authentication failed. Please log in.");
+          setLoading(false);
+          return;
+        }
+        // Call the backend route to fetch bookings for the guide
+        const response = await axios.get(`${API_BASE_URL}/booking/guide`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        console.log("Fetched Bookings:", response.data);
+        if (response.data && response.data.bookings) {
+          setBookings(response.data.bookings);
+        } else {
+          setBookings([]);
+        }
+      } catch (error) {
+        console.error(
+          "Error fetching bookings:",
+          error.response?.data || error.message
+        );
+        Alert.alert("Error", "Failed to fetch booking details.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookings();
+  }, []);
+
+  // Compute booking counts based on the fetched data
+  const totalBookings = bookings.length;
+  const pendingBookings = bookings.filter((b) => b.status === "Pending").length;
+  const completedBookings = bookings.filter(
+    (b) => b.status === "Completed"
+  ).length;
+
   return (
     <View className="flex-1 bg-white">
       {/* Header */}
@@ -64,33 +103,49 @@ const GuideHome = () => {
       </View>
 
       <View className="p-4 mt-2">
-        {/* Booking History Title */}
         <Text className="text-lg font-semibold mb-2">Booking History</Text>
       </View>
 
-      {/* Booking List - Special Styling */}
-      <FlatList
-        data={bookingHistory}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View className="flex-row justify-between items-center py-2 px-4 border-b border-gray-200">
-            <View>
-              <Text className="text-base font-semibold">{item.user}</Text>
-              <Text className="text-gray-500 text-sm">{item.date}</Text>
+      {/* Booking List */}
+      {loading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#3B82F6" />
+        </View>
+      ) : bookings.length === 0 ? (
+        <View className="flex-1 items-center mt-10">
+          <Text className="text-2xl font-bold text-gray-700 mt-2">
+            No bookings found.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={bookings}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <View className="flex-row justify-between items-center py-2 px-4 border-b border-gray-200">
+              <View>
+                <Text className="text-base font-semibold">
+                  {item.user ? item.user.name : "Unknown User"}
+                </Text>
+                <Text className="text-gray-500 text-sm">
+                  {new Date(item.startDate).toDateString()}
+                </Text>
+              </View>
+              {/* Icons for Status */}
+              {item.status === "Completed" ? (
+                <Ionicons name="checkmark-circle" size={24} color="green" />
+              ) : item.status === "Pending" ? (
+                <Ionicons name="time-outline" size={24} color="orange" />
+              ) : (
+                <Ionicons name="close-circle" size={24} color="red" />
+              )}
             </View>
-            {/* Icons for Status */}
-            {item.status === "Completed" ? (
-              <Ionicons name="checkmark-circle" size={24} color="green" />
-            ) : item.status === "Pending" ? (
-              <Ionicons name="time-outline" size={24} color="orange" />
-            ) : (
-              <Ionicons name="close-circle" size={24} color="red" />
-            )}
-          </View>
-        )}
-      />
+          )}
+        />
+      )}
+
       {/* Bottom Navigation */}
-      <View className=" bg-white flex-row justify-around border-t p-4 border-gray-200">
+      <View className="bg-white flex-row justify-around border-t p-4 border-gray-200">
         <View className="items-center">
           <TouchableOpacity onPress={() => router.replace("/GuideHome")}>
             <Ionicons name="home" size={20} color="purple" />

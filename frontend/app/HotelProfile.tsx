@@ -19,7 +19,7 @@ const HotelProfile = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [hotelData, setHotelData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);                                                                                                                                                                                                                                          45522222
 
   useEffect(() => {
     fetchHotelDetails();

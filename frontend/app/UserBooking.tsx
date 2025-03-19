@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -13,11 +13,14 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import API_BASE_URL from "@/config";
+import RBSheet from "react-native-raw-bottom-sheet";
 
 const UserBooking = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState([]);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const refRBSheet = useRef();
 
   // Function to fetch user bookings from the backend
   const fetchBookings = async () => {
@@ -67,8 +70,14 @@ const UserBooking = () => {
     fetchBookings();
   }, []);
 
+  // Handler to open the bottom sheet with booking details
+  const handleViewBooking = (booking) => {
+    setSelectedBooking(booking);
+    refRBSheet.current.open();
+  };
+
   return (
-    <View className="flex-1 bg-white">
+    <View className="flex-1 bg-white ">
       {/* Header */}
       <View className="px-6 py-6 bg-gray-200 flex-row items-center gap-4">
         <TouchableOpacity onPress={() => router.replace("/UserHome")}>
@@ -120,7 +129,10 @@ const UserBooking = () => {
                   {new Date(item.endDate).toDateString()}
                 </Text>
               </View>
-              <TouchableOpacity className="bg-pink-600 px-4 py-1 rounded-md">
+              <TouchableOpacity
+                onPress={() => handleViewBooking(item)}
+                className="bg-pink-600 px-4 py-1 rounded-md"
+              >
                 <Text className="text-white font-medium">View</Text>
               </TouchableOpacity>
             </View>
@@ -159,6 +171,46 @@ const UserBooking = () => {
           <Text className="text-gray-500">Menu</Text>
         </View>
       </View>
+
+      {/* Bottom Sheet for Booking Details */}
+      <RBSheet
+        ref={refRBSheet}
+        height={350}
+        openDuration={250}
+        customStyles={{
+          container: {
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+            padding: 20,
+          },
+        }}
+      >
+        {selectedBooking ? (
+          <View>
+            <Text className="text-xl font-bold mb-4">Booking Details</Text>
+            <Text className="text-base mb-2">
+              <Text className="font-semibold">Guide Email:</Text>{" "}
+              {selectedBooking.guide.email}
+            </Text>
+            <Text className="text-base mb-2">
+              <Text className="font-semibold">Specialization:</Text>{" "}
+              {selectedBooking.guide.specialization}
+            </Text>
+            <Text className="text-base mb-2">
+              <Text className="font-semibold">Start Date:</Text>{" "}
+              {new Date(selectedBooking.startDate).toDateString()}
+            </Text>
+            <Text className="text-base mb-2">
+              <Text className="font-semibold">End Date:</Text>{" "}
+              {new Date(selectedBooking.endDate).toDateString()}
+            </Text>
+          </View>
+        ) : (
+          <View>
+            <Text>No booking details available.</Text>
+          </View>
+        )}
+      </RBSheet>
     </View>
   );
 };

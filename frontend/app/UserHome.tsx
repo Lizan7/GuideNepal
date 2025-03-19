@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react";
-
 import {
   View,
   Text,
@@ -34,62 +33,6 @@ interface Hotel {
   price: number;
 }
 
-// const guides = [
-//   {
-//     name: "John Doe",
-//     expertise: "Expert in City Tours",
-//     image: require("../assets/images/Guide1.jpg"),
-//   },
-//   {
-//     name: "Jane Smith",
-//     expertise: "Mountain Guide",
-//     image: require("../assets/images/Guide2.jpg"),
-//   },
-//   {
-//     name: "Jane Smith",
-//     expertise: "Mountain Guide",
-//     image: require("../assets/images/Guide2.jpg"),
-//   },
-//   {
-//     name: "Jane Smith",
-//     expertise: "Mountain Guide",
-//     image: require("../assets/images/Guide2.jpg"),
-//   },
-// ];
-
-// const hotels = [
-//   {
-//     name: "Seaside Resort",
-//     rating: "5 stars",
-//     description: "Beachfront",
-//     image: require("../assets/images/hotel1.jpg"),
-//   },
-//   {
-//     name: "Mountain Inn",
-//     rating: "4 stars",
-//     description: "Scenic Views",
-//     image: require("../assets/images/hotel2.jpg"),
-//   },
-//   {
-//     name: "Mountain Inn",
-//     rating: "4 stars",
-//     description: "Scenic Views",
-//     image: require("../assets/images/hotel2.jpg"),
-//   },
-//   {
-//     name: "Mountain Inn",
-//     rating: "4 stars",
-//     description: "Scenic Views",
-//     image: require("../assets/images/hotel2.jpg"),
-//   },
-//   {
-//     name: "Mountain Inn",
-//     rating: "4 stars",
-//     description: "Scenic Views",
-//     image: require("../assets/images/hotel2.jpg"),
-//   },
-// ];
-
 const experiences = [
   { id: 1, title: "Delicious", subtitle: "Food tours", icon: "pizza" },
   { id: 2, title: "Amazing", subtitle: "Walking tour", icon: "walk" },
@@ -109,7 +52,6 @@ const UserHome = () => {
   const fetchGuideDetails = async () => {
     try {
       setLoading(true);
-
       const token = await AsyncStorage.getItem("token");
       if (!token) {
         Alert.alert("Error", "No token found, please log in again.");
@@ -193,7 +135,7 @@ const UserHome = () => {
 
   return (
     <View className="flex-1 bg-white">
-      {/* main container */}
+      {/* Main container */}
       <View className="flex-1">
         {/* Header */}
         <View className="flex-row items-center gap-2 bg-gray-200 h-16">
@@ -214,7 +156,7 @@ const UserHome = () => {
           <View className="bg-lime-200 w-full px-4 h-60">
             <View className="items-center mt-5">
               <Text className="text-3xl font-extrabold text-slate-700 text-center">
-                Enchanting experiences,{"           "} with{" "}
+                Enchanting experiences,{" "}
                 <Text className="text-3xl text-pink-700">
                   incredible guides
                 </Text>
@@ -222,8 +164,7 @@ const UserHome = () => {
             </View>
             <View className="items-center mt-3">
               <Text className="text-lg font-semibold text-center text-slate-700 px-8">
-                Hire guides and book hotels to make {"        "} your experience
-                worthy
+                Hire guides and book hotels to make your experience worthy
               </Text>
             </View>
             <View className="w-[300px] h-18 bg-white rounded-full mt-5 ml-8 flex-row items-center justify-center">
@@ -250,7 +191,7 @@ const UserHome = () => {
               Popular Guides
             </Text>
             <Text className="text-lg font-semibold text-green-900">
-              Take a tour of the hidden places of Nepal with our very experinced
+              Take a tour of the hidden places of Nepal with our experienced
               guides
             </Text>
           </View>
@@ -260,9 +201,13 @@ const UserHome = () => {
             className="mt-3"
           >
             {guides.map((guide, index) => {
-              const imageUrl = `${API_BASE_URL}/api/guideVerification/${guide.profileImage}`;
+              const imageUrl =
+                `${API_BASE_URL}/guideVerification/${guide.profileImage}`.replace(
+                  /([^:]\/)\/+/g,
+                  "$1"
+                );
 
-              console.log("Final Image URL in React Native:", imageUrl);
+              console.log("✅ Final Image URL:", imageUrl);
 
               return (
                 <TouchableOpacity
@@ -324,8 +269,7 @@ const UserHome = () => {
                   className="mt-3"
                 >
                   {hotels.map((hotel, index) => {
-                    const imageUrl = `${API_BASE_URL}/api/hotelUploads/${hotel.hotelProfile}`;
-
+                    const imageUrl = `${API_BASE_URL}/hotelUploads/${hotel.hotelProfile}`;
                     return (
                       <TouchableOpacity
                         key={index}
@@ -415,9 +359,9 @@ const UserHome = () => {
             <View className="mt-6 space-y-6">
               {/* Customizable */}
               <View className="flex items-center">
-                <View className="bg-white rounded-full ">
+                <View className="bg-white rounded-full">
                   <Image
-                    source={require("../assets/icons/magic.png")} // Replace with actual image
+                    source={require("../assets/icons/magic.png")}
                     style={{ width: 30, height: 30 }}
                   />
                 </View>
@@ -432,7 +376,7 @@ const UserHome = () => {
               {/* Private Guided Tours */}
               <View className="flex items-center mt-6">
                 <Image
-                  source={require("../assets/icons/guide.png")} // Replace with actual image
+                  source={require("../assets/icons/guide.png")}
                   style={{ width: 30, height: 30 }}
                 />
                 <Text className="text-yellow-400 font-bold text-lg mt-2">
@@ -446,7 +390,7 @@ const UserHome = () => {
               {/* Responsible */}
               <View className="flex items-center mt-6">
                 <Image
-                  source={require("../assets/icons/eco.png")} // Replace with actual image
+                  source={require("../assets/icons/eco.png")}
                   style={{ width: 30, height: 30 }}
                 />
                 <Text className="text-yellow-400 font-bold text-lg mt-2">
@@ -492,6 +436,18 @@ const UserHome = () => {
             <Text className="text-gray-500">Menu</Text>
           </View>
         </View>
+
+        {/* Floating Gemini Chat Icon */}
+        <TouchableOpacity
+          className="absolute bottom-24 right-4 bg-white p-3 rounded-full shadow-lg"
+          onPress={() => router.replace("/GeminiChat")}
+        >
+          <Ionicons
+            name="chatbubble-ellipses-outline"
+            size={30}
+            color="#d63384"
+          />
+        </TouchableOpacity>
       </View>
     </View>
   );
