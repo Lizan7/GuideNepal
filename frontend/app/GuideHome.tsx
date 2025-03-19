@@ -11,13 +11,17 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
 import API_BASE_URL from "@/config";
 
 interface Booking {
   id: string;
   status: string;
   startDate: string;
-  user?: {
+  endDate: string;
+  user: {
+    id: string;
+    email: string;
     name: string;
   };
 }
@@ -25,26 +29,40 @@ interface Booking {
 const GuideHome = () => {
   const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(false); // Changed to false since we're not fetching
+  const [loading, setLoading] = useState(true);
 
-  // Temporary static data for testing
   useEffect(() => {
-    // Simulate some static data
-    const staticBookings: Booking[] = [
-      {
-        id: "1",
-        status: "Pending",
-        startDate: new Date().toISOString(),
-        user: { name: "Test User 1" }
-      },
-      {
-        id: "2",
-        status: "Completed",
-        startDate: new Date().toISOString(),
-        user: { name: "Test User 2" }
+    const fetchGuideBookings = async () => {
+      try {
+        setLoading(true);
+        const token = await AsyncStorage.getItem("token");
+        if (!token) {
+          Alert.alert("Error", "User authentication failed. Please log in.");
+          setLoading(false);
+          return;
+        }
+
+        const response = await axios.get(`${API_BASE_URL}/booking/guide`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.data && response.data.success) {
+          setBookings(response.data.bookings);
+        } else {
+          setBookings([]);
+        }
+      } catch (error: any) {
+        console.error("Error fetching guide bookings:", error.response?.data || error.message);
+        Alert.alert("Error", "Failed to fetch booking details.");
+        setBookings([]);
+      } finally {
+        setLoading(false);
       }
-    ];
-    setBookings(staticBookings);
+    };
+
+    fetchGuideBookings();
   }, []);
 
   // Compute booking counts based on the fetched data
@@ -116,10 +134,10 @@ const GuideHome = () => {
             <View className="flex-row justify-between items-center py-2 px-4 border-b border-gray-200">
               <View>
                 <Text className="text-base font-semibold">
-                  {item.user ? item.user.name : "Unknown User"}
+                  {item.user.name}
                 </Text>
                 <Text className="text-gray-500 text-sm">
-                  {new Date(item.startDate).toDateString()}
+                  {new Date(item.startDate).toDateString()} - {new Date(item.endDate).toDateString()}
                 </Text>
               </View>
               {/* Icons for Status */}
