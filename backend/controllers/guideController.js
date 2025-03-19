@@ -122,5 +122,33 @@ const getGuideDetails = async (req, res) => {
   }
 };
 
+const getGuideProfileDetails = async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-module.exports = { storeGuideDetails, getGuideDetails };
+    // Find the guide by userId
+    const guide = await prisma.guide.findUnique({
+      where: { userId: parseInt(userId) },
+      include: {
+        user: {
+          select: {
+            email: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!guide) {
+      return res.status(404).json({ error: "Guide not found" });
+    }
+
+    // Return the guide details
+    return res.status(200).json(guide);
+  } catch (error) {
+    console.error("Error fetching guide profile details:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+module.exports = { storeGuideDetails, getGuideDetails, getGuideProfileDetails };
