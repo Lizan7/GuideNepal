@@ -7,6 +7,8 @@
   const hotelRoutes = require("./routes/hotelRoutes");
   const bookingRoutes = require("./routes/bookingRoutes");
   const hotelbookingRoutes = require("./routes/hotelbookingRoutes");
+  const khaltiRoutes = require("./routes/paymentRoutes");
+  const { geminiChat } = require('./controllers/geminiController');
 
   require('dotenv').config();
 
@@ -25,6 +27,10 @@ app.use("/api/hotelUploads", express.static(path.join(__dirname, "hotelUploads")
   app.use("/api/hotels", hotelRoutes);
   app.use("/api/booking", bookingRoutes);
   app.use("/api/hotelbooking", hotelbookingRoutes);
+  app.use("/api/khalti", khaltiRoutes);
+
+  // Map the route to the Gemini controller
+app.post('/api/gemini-chat', geminiChat);
 
 
   const PORT = process.env.PORT || 3000;
