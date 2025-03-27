@@ -37,6 +37,7 @@ const GuideProfile = () => {
       }
 
       console.log("Fetching Guide Details...");
+      console.log("API Base URL:", API_BASE_URL);
 
       const response = await axios.get(`${API_BASE_URL}/guides/profile`, {
         headers: { Authorization: `Bearer ${token.trim()}` },
@@ -47,13 +48,25 @@ const GuideProfile = () => {
       if (response.data) {
         setGuideData(response.data);
 
-        // Check if profileImage is a full URL or needs to be prefixed with API_BASE_URL
+        // Handle profile image URL
         if (response.data.profileImage) {
-          const imageUrl = response.data.profileImage.startsWith("http")
-            ? response.data.profileImage
-            : `${API_BASE_URL}${response.data.profileImage}`;
-
+          let imageUrl = response.data.profileImage;
+          console.log("Original Image URL:", imageUrl);
+          
+          // If the URL doesn't start with http, add the API base URL
+          if (!imageUrl.startsWith('http')) {
+            // Remove any leading slash to avoid double slashes
+            imageUrl = imageUrl.startsWith('/') ? imageUrl.slice(1) : imageUrl;
+            // Update the path to use guideVerification instead of uploads
+            imageUrl = imageUrl.replace('uploads', 'guideVerification');
+            imageUrl = `${API_BASE_URL}/${imageUrl}`;
+          }
+          
+          console.log("Final Image URL:", imageUrl);
           setProfileImage(imageUrl);
+        } else {
+          console.log("No profile image found in response");
+          setProfileImage("https://via.placeholder.com/100");
         }
       } else {
         setError("No guide data found.");
@@ -121,11 +134,15 @@ const GuideProfile = () => {
                 uri: profileImage || "https://via.placeholder.com/100",
               }}
               className="w-24 h-24 rounded-full"
-              onError={() => setProfileImage("https://via.placeholder.com/100")}
+              onError={(error) => {
+                console.error("Image loading error:", error.nativeEvent.error);
+                console.error("Failed to load image from URL:", profileImage);
+                setProfileImage("https://via.placeholder.com/100");
+              }}
             />
           </TouchableOpacity>
           <Text className="text-xl font-bold mt-4">
-            {guideData?.name || "Guide Name"}
+            {guideData?.name || guideData?.user?.name || "Guide Name"}
           </Text>
         </View>
 
@@ -134,7 +151,7 @@ const GuideProfile = () => {
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Email</Text>
             <Text className="text-gray-500 text-base">
-              {guideData?.email || "N/A"}
+              {guideData?.email || guideData?.user?.email || "N/A"}
             </Text>
           </View>
           <View className="flex flex-row justify-between">

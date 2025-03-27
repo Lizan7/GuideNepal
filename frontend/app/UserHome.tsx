@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -17,19 +18,23 @@ import API_BASE_URL from "@/config";
 interface Guide {
   id: number;
   email: string;
+  name: string;
   location: string;
   phoneNumber: string;
   specialization: string;
   profileImage: string;
   verificationImage: string;
   isVerified: boolean;
+  user?: {
+    name: string;
+  };
 }
 
 interface Hotel {
   id: number;
   name: string;
   location: string;
-  hotelProfile: string;
+  profileImage: string;
   price: number;
 }
 
@@ -134,9 +139,9 @@ const UserHome = () => {
   }, []);
 
   return (
-    <View className="flex-1 bg-white">
-      {/* Main container */}
-      <View className="flex-1">
+    <>
+      <StatusBar backgroundColor="#E5E7EB" barStyle="dark-content" />
+      <View className="flex-1 bg-white">
         {/* Header */}
         <View className="flex-row items-center gap-2 bg-gray-200 h-16">
           <Image
@@ -201,13 +206,26 @@ const UserHome = () => {
             className="mt-3"
           >
             {guides.map((guide, index) => {
-              const imageUrl =
-                `${API_BASE_URL}/guideVerification/${guide.profileImage}`.replace(
-                  /([^:]\/)\/+/g,
-                  "$1"
-                );
+              let imageUrl = guide.profileImage;
 
-              console.log("✅ Final Image URL:", imageUrl);
+              // Handle profile image URL
+              if (imageUrl) {
+                if (!imageUrl.startsWith("http")) {
+                  // Remove any leading slash to avoid double slashes
+                  imageUrl = imageUrl.startsWith("/")
+                    ? imageUrl.slice(1)
+                    : imageUrl;
+                  // Update the path to use guideVerification instead of uploads
+                  imageUrl = imageUrl.replace("uploads", "guideVerification");
+                  imageUrl = `${API_BASE_URL}/${imageUrl}`;
+                }
+              } else {
+                // Fallback image if no profile image is available
+                imageUrl = "https://via.placeholder.com/150";
+              }
+
+              console.log("Guide Image URL:", imageUrl);
+              console.log("Guide Data:", guide);
 
               return (
                 <TouchableOpacity
@@ -218,7 +236,8 @@ const UserHome = () => {
                       pathname: "/Booking",
                       params: {
                         guideId: guide.id,
-                        guideEmail: guide.email,
+                        guideName:
+                          guide.name || guide.user?.name || guide.email,
                         guideSpecialization: guide.specialization,
                         guideImage: imageUrl,
                       },
@@ -228,13 +247,20 @@ const UserHome = () => {
                   <Image
                     source={{ uri: imageUrl }}
                     style={{ width: 150, height: 150, borderRadius: 10 }}
-                    onError={(e) =>
-                      console.log("Image Load Error:", e.nativeEvent.error)
-                    }
+                    onError={(e) => {
+                      console.log(
+                        "Guide Image Load Error:",
+                        e.nativeEvent.error
+                      );
+                      console.log("Failed to load image from URL:", imageUrl);
+                      console.log("Guide Data:", guide);
+                    }}
                   />
-                  <Text className="font-semibold mt-2">{guide.email}</Text>
+                  <Text className="font-semibold mt-2">
+                    {guide.name || guide.user?.name || guide.email}
+                  </Text>
                   <Text className="text-gray-500 text-sm">
-                    {guide.specialization}
+                    {guide.specialization || "No specialization listed"}
                   </Text>
                 </TouchableOpacity>
               );
@@ -269,7 +295,31 @@ const UserHome = () => {
                   className="mt-3"
                 >
                   {hotels.map((hotel, index) => {
-                    const imageUrl = `${API_BASE_URL}/hotelUploads/${hotel.hotelProfile}`;
+                    let imageUrl = hotel.profileImage;
+
+                    // Handle hotel image URL
+                    if (imageUrl) {
+                      if (!imageUrl.startsWith("http")) {
+                        // Remove any leading slash to avoid double slashes
+                        imageUrl = imageUrl.startsWith("/")
+                          ? imageUrl.slice(1)
+                          : imageUrl;
+
+                        imageUrl = imageUrl.replace("uploads", "hotelUploads");
+
+                        // Construct the full URL with the correct path
+                        imageUrl = `${API_BASE_URL}/${imageUrl}`;
+                      }
+                    } else {
+                      // Fallback image if no hotel image is available
+                      imageUrl = "https://via.placeholder.com/300";
+                    }
+
+                    console.log("API Base URL:", API_BASE_URL);
+                    console.log("Original Hotel Profile:", hotel.profileImage);
+                    console.log("Constructed Hotel Image URL:", imageUrl);
+                    console.log("Complete Hotel Data:", hotel);
+
                     return (
                       <TouchableOpacity
                         key={index}
@@ -290,12 +340,18 @@ const UserHome = () => {
                         <Image
                           source={{ uri: imageUrl }}
                           className="w-60 h-64 rounded-xl mr-4"
-                          onError={(e) =>
+                          onError={(e) => {
                             console.log(
-                              "Image Load Error:",
+                              "Hotel Image Load Error:",
                               e.nativeEvent.error
-                            )
-                          }
+                            );
+                            console.log(
+                              "Failed to load image from URL:",
+                              imageUrl
+                            );
+                            console.log("Complete Hotel Data:", hotel);
+                            console.log("API Base URL:", API_BASE_URL);
+                          }}
                         />
                         <View>
                           <Text className="font-semibold mt-3">
@@ -397,8 +453,7 @@ const UserHome = () => {
                   Responsible
                 </Text>
                 <Text className="text-white text-center px-8">
-                  Our tours are designed with people, places & the planet in
-                  mind.
+                  Our tours are designed with people, places & the planet in mind.
                 </Text>
               </View>
             </View>
@@ -437,10 +492,10 @@ const UserHome = () => {
           </View>
         </View>
 
-        {/* Floating Gemini Chat Icon */}
+        {/* Chat Icon */}
         <TouchableOpacity
           className="absolute bottom-24 right-4 bg-white p-3 rounded-full shadow-lg"
-          onPress={() => router.replace("/GeminiChat")}
+          onPress={() => router.replace("/Chatbot")}
         >
           <Ionicons
             name="chatbubble-ellipses-outline"
@@ -449,7 +504,7 @@ const UserHome = () => {
           />
         </TouchableOpacity>
       </View>
-    </View>
+    </>
   );
 };
 

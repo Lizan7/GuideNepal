@@ -1,138 +1,223 @@
-import React from "react";
-import { View, Text, Image, FlatList, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  ListRenderItem,
+  ImageSourcePropType,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import axios from "axios";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import API_BASE_URL from "../config";
 
-const GuideChat = () => {
+interface Friend {
+  id: number;
+  name: string | null;
+  email: string;
+}
+
+interface Conversation {
+  id: string;
+  name: string;
+  lastMessage: string;
+  time: string;
+  image: ImageSourcePropType;
+}
+
+const GuideChat: React.FC = () => {
+  const [loading, setLoading] = useState<boolean>(true);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [requestCount, setRequestCount] = useState<number>(0);
   const router = useRouter();
 
-  const chatData = [
-    {
-      id: "1",
-      name: "Anna Bella",
-      message: "Great! Thank you so much",
-      time: "11:54 PM",
-      unread: 5,
-      avatar: require("../assets/images/profile.jpg"),
-    },
-    {
-      id: "2",
-      name: "Marc Stegen",
-      message: "Hey wassup.. what's going on",
-      time: "10:30 PM",
-      unread: 5,
-      avatar: require("../assets/images/profile1.png"),
-    },
-    {
-      id: "3",
-      name: "The Kop Fans",
-      message: "Stevie: 📷 Image",
-      time: "08:30 PM",
-      unread: 220,
-      avatar: require("../assets/images/profile.jpg"),
-    },
-    {
-      id: "4",
-      name: "Philipe Louis",
-      message: "You: I shall do that!",
-      time: "Yesterday",
-      unread: 0,
-      avatar: require("../assets/images/profile2.jpg"),
-    },
-    {
-      id: "5",
-      name: "Zhen Zou",
-      message: "You: hey wassup.. what's going on",
-      time: "Yesterday",
-      unread: 0,
-      avatar: require("../assets/images/profile1.png"),
-    },
-    {
-      id: "6",
-      name: "Ji Sung",
-      message: "You: David... I'm working from h...",
-      time: "Yesterday",
-      unread: 0,
-      avatar: require("../assets/images/profile2.jpg"),
-    },
-  ];
+  // Fetch friends
+  const fetchFriends = async (): Promise<void> => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      const response = await axios.get(`${API_BASE_URL}/chat/getfriends`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.friends) {
+        setFriends(response.data.friends);
+
+        // Use the friends data to populate conversations
+        // In a real app, you would fetch the last message for each friend
+        const convos: Conversation[] = response.data.friends.map(
+          (friend: Friend) => ({
+            id: friend.id.toString(),
+            name: friend.name || "User",
+            lastMessage: "Tap to start chatting",
+            time: "Now",
+            image: require("../assets/images/profile.jpg"), // Default image
+          })
+        );
+
+        setConversations(convos);
+      }
+    } catch (error) {
+      console.error("Error fetching friends:", error);
+    }
+  };
+
+  // Check for pending friend requests
+  const checkRequests = async (): Promise<void> => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      const response = await axios.get(`${API_BASE_URL}/chat/getRequest`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.data.requests) {
+        setRequestCount(response.data.requests.length);
+      }
+    } catch (error) {
+      console.error("Error checking requests:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const loadData = async (): Promise<void> => {
+      await fetchFriends();
+      await checkRequests();
+    };
+
+    loadData();
+
+    // You could set up a refresh interval here
+    // const interval = setInterval(checkRequests, 60000);
+    // return () => clearInterval(interval);
+  }, []);
+
+  const navigateToChat = (friendId: string, friendName: string): void => {
+    router.push({
+      pathname: "/ChatRoom",
+      params: { friendId, friendName },
+    });
+  };
+
+  const renderFriendItem: ListRenderItem<Friend> = ({ item }) => (
+    <TouchableOpacity
+      className="items-center mx-2 px-2"
+      onPress={() => navigateToChat(item.id.toString(), item.name || "User")}
+    >
+      <Image
+        source={require("../assets/images/profile.jpg")}
+        className="w-16 h-16 rounded-full"
+      />
+      <Text className="text-sm mt-1 text-center" numberOfLines={1}>
+        {item.name || "User"}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const renderConversationItem: ListRenderItem<Conversation> = ({ item }) => (
+    <TouchableOpacity
+      className="flex-row items-center p-4 border-b border-gray-200"
+      onPress={() => navigateToChat(item.id, item.name)}
+    >
+      <Image source={item.image} className="w-16 h-16 rounded-full" />
+      <View className="flex-1 ml-4">
+        <Text className="text-base font-bold">{item.name}</Text>
+        <Text className="text-sm text-gray-600">{item.lastMessage}</Text>
+      </View>
+      <Text className="text-xs text-gray-500">{item.time}</Text>
+    </TouchableOpacity>
+  );
 
   return (
-    <View style={{ flex: 1, backgroundColor: "white" }}>
+    <View className="flex-1 bg-white">
       {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: 16,
-          backgroundColor: "#3B82F6",
-        }}
-      >
-        <TouchableOpacity onPress={() => router.replace("/GuideHome")}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={{ color: "white", fontSize: 18, fontWeight: "bold" }}>
-          Messages
-        </Text>
-        <TouchableOpacity>
-          <Ionicons name="search-outline" size={24} color="white" />
-        </TouchableOpacity>
+      <View className="px-6 py-4 bg-gray-200 flex-row items-center justify-between">
+        <View className="flex-row gap-3">
+          <TouchableOpacity onPress={() => router.replace("/UserHome")}>
+            <Ionicons name="chevron-back-outline" size={24} color="black" />
+          </TouchableOpacity>
+          <Text className="text-lg font-bold text-gray-800">Chats</Text>
+        </View>
       </View>
 
-      {/* Chat List */}
-      <FlatList
-        data={chatData}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              padding: 12,
-              borderBottomWidth: 1,
-              borderBottomColor: "#E5E7EB",
-            }}
-          >
-            <Image
-              source={item.avatar} // ✅ Corrected here: No { uri: ... } for require()
-              style={{ width: 48, height: 48, borderRadius: 24 }}
-            />
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={{ fontSize: 16, fontWeight: "bold" }}>
-                {item.name}
-              </Text>
-              <Text style={{ color: "#6B7280", fontSize: 14 }}>
-                {item.message}
-              </Text>
-            </View>
-            <View style={{ alignItems: "flex-end" }}>
-              <Text style={{ color: "#9CA3AF", fontSize: 12 }}>
-                {item.time}
-              </Text>
-              {item.unread > 0 && (
-                <View
-                  style={{
-                    backgroundColor: "#A855F7",
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginTop: 4,
-                  }}
-                >
-                  <Text
-                    style={{ color: "white", fontSize: 12, fontWeight: "bold" }}
-                  >
-                    {item.unread}
-                  </Text>
+      {/* Friends row */}
+      <View className="py-3 border-b border-gray-200">
+        <Text className="px-6 pb-2 text-gray-700 font-medium">Friends</Text>
+        <FlatList
+          horizontal
+          data={friends}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderFriendItem}
+          ListEmptyComponent={() => (
+            <View className="flex-row items-center px-6">
+              <TouchableOpacity
+                className="items-center mx-2"
+                onPress={() => router.push("/FindFriends")}
+              >
+                <View className="w-16 h-16 rounded-full bg-gray-200 items-center justify-center">
+                  <Ionicons name="add" size={30} color="gray" />
                 </View>
-              )}
+                <Text className="text-sm mt-1 text-center">Add Friends</Text>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          )}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 10 }}
+        />
+      </View>
+
+      {/* Conversations */}
+      <View className="flex-1">
+        <Text className="px-6 py-3 text-gray-700 font-medium">
+          Recent Chats
+        </Text>
+
+        {loading ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator size="large" color="#d63384" />
+            <Text className="text-lg text-gray-600 mt-3">
+              Loading conversations...
+            </Text>
+          </View>
+        ) : conversations.length === 0 ? (
+          <View className="flex-1 items-center justify-center p-4">
+            <Image
+              source={require("../assets/images/no-booking.png")}
+              className="w-64 h-60"
+            />
+            <Text className="text-xl font-bold text-gray-700 mt-2">
+              No conversations yet
+            </Text>
+            <Text className="text-gray-500 mt-1 text-lg text-center">
+              Add friends to start chatting!
+            </Text>
+            <TouchableOpacity
+              className="mt-6 bg-purple-600 py-3 px-6 rounded-full"
+              onPress={() => router.push("/FindFriends")}
+            >
+              <Text className="text-white font-bold text-lg">Find Friends</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={conversations}
+            keyExtractor={(item) => item.id}
+            renderItem={renderConversationItem}
+          />
         )}
-      />
+      </View>
 
       {/* Bottom Navigation */}
       <View
@@ -153,7 +238,7 @@ const GuideChat = () => {
         </View>
 
         <View style={{ alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.replace("/GuideChat")}>
+          <TouchableOpacity>
             <Ionicons
               name="chatbubble-ellipses-outline"
               size={24}
