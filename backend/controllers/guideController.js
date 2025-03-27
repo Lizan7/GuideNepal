@@ -31,14 +31,10 @@ const storeGuideDetails = async (req, res) => {
     }
 
     try {
-        const userId = req.user.id;
-        const email = req.user.email;
-        const name = req.user.name;
-        console.log('usersr', req.user);
-        const { location, phoneNumber, specialization } = req.body;
-      if (!req.files) {
-        return res.status(400).json({ error: "No images uploaded." });
-      }
+      const userId = req.user.id;
+      const email = req.user.email;
+      const name = req.user.name;
+      const { location, phoneNumber, specialization } = req.body;
 
       // Validate user
       const user = await prisma.user.findUnique({
@@ -58,45 +54,67 @@ const storeGuideDetails = async (req, res) => {
         where: { userId: parseInt(userId) },
       });
 
+      let guide;
       if (existingGuide) {
-        return res.status(400).json({ error: "Guide details already exist" });
-      }
-
-      // Get file paths
-      const profileImagePath = req.files["profileImage"]
-        ? `/uploads/${req.files["profileImage"][0].filename}`
-        : null;
-
-      const verificationImagePath = req.files["verificationImage"]
-        ? `/uploads/${req.files["verificationImage"][0].filename}`
-        : null;
-
-      const guide = await prisma.guide.create({
-        data: {
-          userId: user.id,
-          name: userName,
+        // Update existing guide
+        const updateData = {
+          name,
           phoneNumber,
           location,
           specialization,
-          email:email,
-          profileImage: profileImagePath, 
-          verificationImage: verificationImagePath,
-          isVerified: false
-        },
-      });
+          email,
+        };
 
-      console.log("Guide successfully stored:", guide);
+        // Only update images if new ones are provided
+        if (req.files) {
+          if (req.files["profileImage"]) {
+            updateData.profileImage = `/uploads/${req.files["profileImage"][0].filename}`;
+          }
+          if (req.files["verificationImage"]) {
+            updateData.verificationImage = `/uploads/${req.files["verificationImage"][0].filename}`;
+          }
+        }
+
+        guide = await prisma.guide.update({
+          where: { userId: parseInt(userId) },
+          data: updateData,
+        });
+      } else {
+        // Create new guide
+        const profileImagePath = req.files?.["profileImage"]
+          ? `/uploads/${req.files["profileImage"][0].filename}`
+          : null;
+
+        const verificationImagePath = req.files?.["verificationImage"]
+          ? `/uploads/${req.files["verificationImage"][0].filename}`
+          : null;
+
+        guide = await prisma.guide.create({
+          data: {
+            userId: user.id,
+            name,
+            phoneNumber,
+            location,
+            specialization,
+            email,
+            profileImage: profileImagePath,
+            verificationImage: verificationImagePath,
+            isVerified: false,
+          },
+        });
+      }
+
+      console.log("Guide successfully stored/updated:", guide);
       return res.status(201).json({
-        message: "Guide details stored successfully",
+        message: existingGuide ? "Guide details updated successfully" : "Guide details stored successfully",
         guide,
       });
     } catch (error) {
-      console.error("Error storing guide details:", error);
+      console.error("Error storing/updating guide details:", error);
       return res.status(500).json({ error: "Internal Server Error" });
     }
   });
 };
-
 
 const getGuideDetails = async (req, res) => {
   try {

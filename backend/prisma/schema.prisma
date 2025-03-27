@@ -13,35 +13,39 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 model User {
-  id       Int     @id @default(autoincrement())
-  name     String? @db.VarChar(255)
-  email    String  @unique(map: "email") @db.VarChar(255)
-  password String
-  role     Role
-  guides   Guide[] // One-to-One or One-to-Many relationship
-  hotels   Hotel[]
-  bookings UserBooking[]
-  hotelBookings  HotelBooking[]
+  id               Int            @id @default(autoincrement())
+  name             String?        @db.VarChar(255)
+  email            String         @unique(map: "email") @db.VarChar(255)
+  password         String
+  role             Role
+  guides           Guide[]
+  hotels           Hotel[]
+  bookings         UserBooking[]
+  hotelBookings    HotelBooking[]
+  friends          User[]        @relation("UserFriends")
+  Message          Message[]     @relation("Sender")
+  receivedMessages Message[]     @relation("Receiver")
+  User             User[]        @relation("UserFriends")
+  Requestfrom      Request[]     @relation("RequestFrom")
+  Requestuser      Request[]     @relation("RequestUser")
 }
 
 model Guide {
-  id                Int    @id @default(autoincrement())
-  userId            Int    @unique
-  user              User   @relation(fields: [userId], references: [id])
+  id                Int           @id @default(autoincrement())
+  userId            Int           @unique
+  user              User          @relation(fields: [userId], references: [id])
   email             String
-  name              String? @db.VarChar(255)
+  name              String?       @db.VarChar(255)
   phoneNumber       String
   location          String
   specialization    String
   isVerified        Boolean
-  profileImage      String? @db.LongText
-  verificationImage String? @db.LongText
-  createdAt         DateTime @default(now())
+  profileImage      String?       @db.LongText
+  verificationImage String?       @db.LongText
+  createdAt         DateTime      @default(now())
   bookings          UserBooking[]
 }
-
 
 enum Role {
   ADMIN
@@ -51,36 +55,35 @@ enum Role {
 }
 
 model Hotel {
-  id              Int      @id @default(autoincrement())
-  name            String
-  email           String   
-  phoneNumber     String
-  location        String
-  price           Float
-  itineraries     String
-  roomsAvailable  Int
-  isVerified      Boolean
-  profileImage    String?
-  certificate     String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  userId          Int      @unique
-  user            User     @relation(fields: [userId], references: [id])
-  hotelBookings  HotelBooking[] 
+  id             Int            @id @default(autoincrement())
+  name           String
+  email          String
+  phoneNumber    String
+  location       String
+  price          Float
+  itineraries    String
+  roomsAvailable Int
+  isVerified     Boolean
+  profileImage   String?
+  certificate    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  userId         Int            @unique
+  user           User           @relation(fields: [userId], references: [id])
+  hotelBookings  HotelBooking[]
 }
 
-
 model UserBooking {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  guideId     Int
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  guide       Guide    @relation(fields: [guideId], references: [id], onDelete: Cascade)
-  startDate   DateTime?  
-  endDate     DateTime?  
-  paymentStatus Boolean  @default(false)
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  guideId       Int
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guide         Guide     @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  startDate     DateTime?
+  endDate       DateTime?
+  paymentStatus Boolean   @default(false)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 model HotelBooking {
@@ -94,7 +97,35 @@ model HotelBooking {
   rooms         Int
   paymentStatus Boolean  @default(false)
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
+model Request {
+  id        Int      @id @default(autoincrement())
+  fromId    Int
+  from      User     @relation("RequestFrom", fields: [fromId], references: [id])
+  message   String
+  status    status   @default(pending)
+  userId    Int
+  user      User     @relation("RequestUser", fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
+model Message {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  sender     User     @relation("Sender", fields: [senderId], references: [id])
+  receiverId Int
+  receiver   User     @relation("Receiver", fields: [receiverId], references: [id])
+  message    String?
+  timeStamp  DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum status {
+  pending
+  accepted
+  rejected
+}

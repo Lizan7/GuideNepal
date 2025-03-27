@@ -35,6 +35,7 @@ const createUserBooking = async (req, res) => {
     const existingBooking = await prisma.userBooking.findFirst({
       where: {
         guideId: parseInt(guideId),
+        status: "confirmed",
         OR: [
           {
             startDate: { lte: end },
@@ -45,7 +46,13 @@ const createUserBooking = async (req, res) => {
     });
 
     if (existingBooking) {
-      return res.status(400).json({ error: "This guide is already booked during these dates." });
+      return res.status(400).json({ 
+        error: "This guide is already booked during these dates.",
+        existingBooking: {
+          startDate: existingBooking.startDate,
+          endDate: existingBooking.endDate
+        }
+      });
     }
 
     // Create booking for multiple days
@@ -55,13 +62,105 @@ const createUserBooking = async (req, res) => {
         guideId: parseInt(guideId),
         startDate: start,
         endDate: end,
-        paymentStatus: paymentStatus ?? false, // Default to false if not provided
+        paymentStatus: paymentStatus ?? false,
+        status: paymentStatus ? "confirmed" : "pending"
       },
     });
 
-    return res.status(201).json({ success: true, message: "Booking successful!", booking: newBooking });
+    return res.status(201).json({ 
+      success: true, 
+      message: "Booking successful!", 
+      booking: newBooking 
+    });
   } catch (error) {
     console.error("Booking Error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// Create Hotel Booking with Room Availability Check
+const createHotelBooking = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { hotelId, startDate, endDate, numberOfRooms, paymentStatus } = req.body;
+
+    // Validate input
+    if (!hotelId || !startDate || !endDate || !numberOfRooms) {
+      return res.status(400).json({ 
+        error: "Hotel ID, start date, end date, and number of rooms are required." 
+      });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    if (start > end) {
+      return res.status(400).json({ error: "Start date must be before end date." });
+    }
+
+    // Ensure user exists
+    const user = await prisma.user.findUnique({ where: { id: parseInt(userId) } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    // Ensure hotel exists and get total rooms
+    const hotel = await prisma.hotel.findUnique({ 
+      where: { id: parseInt(hotelId) },
+      select: { 
+        id: true, 
+        totalRooms: true,
+        verified: true 
+      }
+    });
+
+    if (!hotel) return res.status(404).json({ error: "Hotel not found" });
+    if (!hotel.verified) return res.status(400).json({ error: "Hotel is not verified yet." });
+
+    // Check room availability for the given dates
+    const existingBookings = await prisma.hotelBooking.findMany({
+      where: {
+        hotelId: parseInt(hotelId),
+        status: "confirmed",
+        OR: [
+          {
+            startDate: { lte: end },
+            endDate: { gte: start },
+          },
+        ],
+      },
+    });
+
+    // Calculate total booked rooms for the date range
+    const totalBookedRooms = existingBookings.reduce((sum, booking) => sum + booking.numberOfRooms, 0);
+    const availableRooms = hotel.totalRooms - totalBookedRooms;
+
+    if (numberOfRooms > availableRooms) {
+      return res.status(400).json({ 
+        error: "Not enough rooms available for the selected dates.",
+        availableRooms,
+        requestedRooms: numberOfRooms
+      });
+    }
+
+    // Create hotel booking
+    const newBooking = await prisma.hotelBooking.create({
+      data: {
+        userId: parseInt(userId),
+        hotelId: parseInt(hotelId),
+        startDate: start,
+        endDate: end,
+        numberOfRooms,
+        paymentStatus: paymentStatus ?? false,
+        status: paymentStatus ? "confirmed" : "pending"
+      },
+    });
+
+    return res.status(201).json({ 
+      success: true, 
+      message: "Hotel booking successful!", 
+      booking: newBooking 
+    });
+  } catch (error) {
+    console.error("Hotel Booking Error:", error);
     return res.status(500).json({ error: "Internal Server Error" });
   }
 };
@@ -143,4 +242,9 @@ const getGuideBookings = async (req, res) => {
   }
 };
 
-module.exports = { createUserBooking, getUserBookings, getGuideBookings };
+module.exports = { 
+  createUserBooking, 
+  createHotelBooking,
+  getUserBookings, 
+  getGuideBookings 
+};
