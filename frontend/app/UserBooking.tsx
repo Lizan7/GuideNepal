@@ -19,7 +19,7 @@ import API_BASE_URL from "@/config";
 interface Guide {
   id: string;
   name: string;
-  profileImage?: string;
+  profileImage?: string; 
   specialization?: string;
   user?: {
     name: string;

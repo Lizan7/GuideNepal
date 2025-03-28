@@ -32,6 +32,7 @@ const Layout = () => {
         <Stack.Screen name="/Booking" options={{ headerShown: false }} />
         <Stack.Screen name="/SpecificHotel" options={{ headerShown: false }} />
         <Stack.Screen name="/Chatbot" options={{ headerShown: false }} />
+        <Stack.Screen name="/Admin" options={{ headerShown: false }} />
       </Stack>
 
       {/* Toast Notifications */}

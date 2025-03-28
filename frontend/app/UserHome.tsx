@@ -246,7 +246,7 @@ const UserHome = () => {
                 >
                   <Image
                     source={{ uri: imageUrl }}
-                    style={{ width: 150, height: 150, borderRadius: 10 }}
+                    className="w-60 h-64 rounded-xl mr-4"
                     onError={(e) => {
                       console.log(
                         "Guide Image Load Error:",
@@ -256,10 +256,10 @@ const UserHome = () => {
                       console.log("Guide Data:", guide);
                     }}
                   />
-                  <Text className="font-semibold mt-2">
+                  <Text className="font-semibold mt-2 text-lg px-2">
                     {guide.name || guide.user?.name || guide.email}
                   </Text>
-                  <Text className="text-gray-500 text-sm">
+                  <Text className="text-gray-500 text-base px-2">
                     {guide.specialization || "No specialization listed"}
                   </Text>
                 </TouchableOpacity>
@@ -354,10 +354,10 @@ const UserHome = () => {
                           }}
                         />
                         <View>
-                          <Text className="font-semibold mt-3">
+                          <Text className="font-semibold mt-3 text-lg">
                             {hotel.name}
                           </Text>
-                          <Text className="text-gray-500 text-sm">
+                          <Text className="text-gray-500 text-base">
                             {hotel.location}
                           </Text>
                         </View>
@@ -370,7 +370,7 @@ const UserHome = () => {
           </ScrollView>
 
           {/* Experiences */}
-          <View className="flex-1 bg-white p-4 mt-3">
+          <View className="flex-1 bg-white p-4">
             <Text className="text-2xl font-bold text-gray-900">
               Find your{" "}
               <Text className="text-pink-700">perfect experience</Text>
@@ -380,7 +380,7 @@ const UserHome = () => {
             </Text>
 
             {/* Experience Categories */}
-            <View className="mt-6 px-10 gap-3">
+            <View className="mt-2 px-10 gap-3">
               {experiences.map((exp) => (
                 <TouchableOpacity
                   key={exp.id}
@@ -453,7 +453,8 @@ const UserHome = () => {
                   Responsible
                 </Text>
                 <Text className="text-white text-center px-8">
-                  Our tours are designed with people, places & the planet in mind.
+                  Our tours are designed with people, places & the planet in
+                  mind.
                 </Text>
               </View>
             </View>

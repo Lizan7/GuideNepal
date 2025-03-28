@@ -59,12 +59,12 @@ const SignUpScreen = () => {
   return (
     <View className="flex-1 bg-white px-6 py-8">
       {/* Header */}
-      <View className="items-center mb-7">
+      <View className="items-center mb-7 mt-12">
         <Image
           source={require("../assets/images/Logo.png")}
-          style={{ width: 40, height: 40, borderRadius: 40 }}
+          style={{ width: 60, height: 60, borderRadius: 40 }}
         />
-        <Text className="text-xl font-bold text-pink-700 mt-4">
+        <Text className="text-xl font-bold text-pink-700">
           Create an account
         </Text>
         <Text className="text-gray-500 text-center">
@@ -72,32 +72,8 @@ const SignUpScreen = () => {
         </Text>
       </View>
 
-      {/* Social Login Buttons */}
-      <View className="flex-row justify-between space-x-3 mb-4">
-        <TouchableOpacity className="bg-black px-10 py-3 rounded-lg">
-          <Ionicons name="logo-apple" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity className="bg-blue-600 px-10 py-3 rounded-lg">
-          <Ionicons name="logo-facebook" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity className="bg-gray-200 px-10 py-3 rounded-lg">
-          <Ionicons name="logo-google" size={24} color="black" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Divider */}
-      <View className="flex-row items-center justify-center">
-        <View className="flex-1 border-t border-gray-300" />
-        <Text className="text-gray-500 mx-2">or</Text>
-        <View className="flex-1 border-t border-gray-300" />
-      </View>
-
       {/* Form Container */}
-      <View className="bg-white py-2 mt-3">
-        <Text className="text-gray-700 font-semibold mb-2 text-center mt-2">
-          Sign up with your email address
-        </Text>
-
+      <View className="bg-white py-2 mt-1">
         {/* Username */}
         <View className="mb-3">
           <Text className="text-gray-700">Username</Text>

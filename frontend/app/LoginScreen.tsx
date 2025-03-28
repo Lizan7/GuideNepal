@@ -64,45 +64,21 @@ const LoginScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-white px-6 py-8 justify-center">
+    <View className="flex-1 bg-white px-6 py-8">
       {/* Header */}
-      <View className="relative items-center justify-center mb-10">
+      <View className="relative items-center justify-center mb-10 mt-28">
         <Image
           source={require("../assets/images/Logo.png")}
-          style={{ width: 40, height: 40, borderRadius: 40 }}
+          style={{ width: 60, height: 60, borderRadius: 40 }}
         />
-        <Text className="text-2xl font-bold text-pink-700 mt-3">
+        <Text className="text-3xl font-bold text-pink-700 mt-3">
           Welcome back
         </Text>
-        <Text className="text-gray-600">Log in to your account</Text>
-      </View>
-
-      {/* Social Login Buttons */}
-      <View className="flex-row justify-between space-x-3 mb-4">
-        <TouchableOpacity className="bg-black px-10 py-3 rounded-lg">
-          <Ionicons name="logo-apple" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity className="bg-blue-600 px-10 py-3 rounded-lg">
-          <Ionicons name="logo-facebook" size={24} color="white" />
-        </TouchableOpacity>
-        <TouchableOpacity className="bg-gray-200 px-10 py-3 rounded-lg">
-          <Ionicons name="logo-google" size={24} color="black" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Divider */}
-      <View className="flex-row items-center justify-center my-4">
-        <View className="flex-1 border-t border-gray-300" />
-        <Text className="text-gray-500 mx-2">or</Text>
-        <View className="flex-1 border-t border-gray-300" />
+        <Text className="text-gray-600 text-xl">Log in to your account</Text>
       </View>
 
       {/* Form Container */}
-      <View className="bg-white ">
-        <Text className="text-gray-700 font-semibold mb-6">
-          Log in with your email address
-        </Text>
-
+      <View className="bg-white items-cen">
         {/* Email */}
         <View className="mb-3">
           <Text className="text-gray-700">Email</Text>
@@ -144,7 +120,7 @@ const LoginScreen = () => {
         </View>
 
         {/* Forgot Password */}
-        <TouchableOpacity className="mb-6">
+        <TouchableOpacity className="mb-6 items-end">
           <Text className="text-pink-700 text-sm font-semibold">
             Forgot your password?
           </Text>
