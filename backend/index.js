@@ -37,6 +37,7 @@ app.use("/api/hotelbooking", hotelbookingRoutes);
 app.use("/api/khalti", khaltiRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/rate", chatRoutes);
 
 // app.use("/api/admin", adminRoutes);
 

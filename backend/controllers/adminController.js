@@ -32,7 +32,7 @@ const getGuides = async (req, res) => {
         user: {
           select: {
             name: true,
-            email: true,
+            email: true, 
           },
         },
       },
