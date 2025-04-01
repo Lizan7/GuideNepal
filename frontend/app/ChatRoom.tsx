@@ -279,15 +279,6 @@ const ChatRoom: React.FC = () => {
             <Text style={styles.userStatus}>Online</Text>
           </View>
         </View>
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.headerActionButton}>
-            <Ionicons name="call-outline" size={20} color="black" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.headerActionButton}>
-            <Ionicons name="videocam-outline" size={20} color="black" />
-          </TouchableOpacity>
-        </View>
       </View>
 
       {/* Messages List */}
@@ -317,9 +308,6 @@ const ChatRoom: React.FC = () => {
         keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
         style={styles.inputContainer}
       >
-        <TouchableOpacity style={styles.attachButton}>
-          <Ionicons name="add" size={24} color="gray" />
-        </TouchableOpacity>
 
         <TextInput
           style={styles.textInput}

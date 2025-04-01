@@ -19,7 +19,7 @@ const HotelProfile = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [hotelData, setHotelData] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);                                                                                                                                                                                                                                          45522222
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHotelDetails();
@@ -27,10 +27,13 @@ const HotelProfile = () => {
 
   const fetchHotelDetails = async () => {
     try {
-      const token = await AsyncStorage.getItem("token");
+      setLoading(true);
+      setError(null); // Reset any previous errors
 
+      const token = await AsyncStorage.getItem("token");
       if (!token) {
         Alert.alert("Error", "No authentication token found. Please log in.");
+        setLoading(false);
         return;
       }
 
@@ -38,16 +41,47 @@ const HotelProfile = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (response.data.hotels.length > 0) {
-        const hotel = response.data.hotels[0]; // Assuming user has only one hotel
+      if (response.data.hotels && response.data.hotels.length > 0) {
+        const hotel = response.data.hotels[0];
         setHotelData(hotel);
-        setProfileImage(`${API_BASE_URL}${hotel.profileImage}`); // ✅ Load hotel profile image from backend
+        if (hotel.profileImage) {
+          setProfileImage(`${API_BASE_URL}${hotel.profileImage}`);
+        } else {
+          setProfileImage("https://via.placeholder.com/100");
+        }
       } else {
-        setError("No hotel data found.");
+        // If no hotel data exists yet, set empty hotel data
+        setHotelData({
+          name: null,
+          email: null,
+          phoneNumber: null,
+          location: null,
+          itineraries: null,
+          roomsAvailable: null,
+          price: null,
+          isVerified: false
+        });
+        setProfileImage("https://via.placeholder.com/100");
       }
     } catch (error: any) {
       console.error("Error fetching hotel details:", error);
-      setError("Failed to fetch hotel details.");
+      // Only set error if it's not a 404 (not found) error
+      if (error.response?.status !== 404) {
+        setError("Failed to fetch hotel details.");
+      } else {
+        // If hotel not found (404), set empty hotel data
+        setHotelData({
+          name: null,
+          email: null,
+          phoneNumber: null,
+          location: null,
+          itineraries: null,
+          roomsAvailable: null,
+          price: null,
+          isVerified: false
+        });
+        setProfileImage("https://via.placeholder.com/100");
+      }
     } finally {
       setLoading(false);
     }
@@ -151,7 +185,7 @@ const HotelProfile = () => {
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Price</Text>
             <Text className="text-gray-500 text-base">
-              {hotelData?.price ? `$${hotelData.price}` : "N/A"}
+              {hotelData?.price ? `Rs. ${hotelData.price}` : "N/A"}
             </Text>
           </View>
           <View className="flex flex-row justify-between">

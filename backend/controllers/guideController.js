@@ -34,7 +34,11 @@ const storeGuideDetails = async (req, res) => {
       const userId = req.user.id;
       const email = req.user.email;
       const name = req.user.name;
-      const { location, phoneNumber, specialization } = req.body;
+      // Now extracting charge along with other details from req.body
+      const { location, phoneNumber, specialization, charge } = req.body;
+
+      // Convert charge to float
+      const chargeFloat = parseFloat(charge);
 
       // Validate user
       const user = await prisma.user.findUnique({
@@ -63,6 +67,7 @@ const storeGuideDetails = async (req, res) => {
           location,
           specialization,
           email,
+          charge: chargeFloat, // Use the float value
         };
 
         // Only update images if new ones are provided
@@ -97,6 +102,7 @@ const storeGuideDetails = async (req, res) => {
             location,
             specialization,
             email,
+            charge: chargeFloat, // Use the float value
             profileImage: profileImagePath,
             verificationImage: verificationImagePath,
             isVerified: false,
@@ -118,14 +124,14 @@ const storeGuideDetails = async (req, res) => {
 
 const getGuideDetails = async (req, res) => {
   try {
-      const guideDetails = await prisma.guide.findMany({ // Fetch all guides
+      const guideDetails = await prisma.guide.findMany({
           include: {
               user: {
                 select: {
                   email: true,
                   name: true,
                 },
-              }
+              },
           }
       });
 
@@ -133,7 +139,7 @@ const getGuideDetails = async (req, res) => {
           return res.status(404).json({ error: "No guides found" });
       }
 
-      return res.status(200).json({ guides: guideDetails }); // Return an array
+      return res.status(200).json({ guides: guideDetails });
   } catch (error) {
       console.error("Error fetching guide details:", error);
       return res.status(500).json({ error: "Internal Server Error" });
@@ -161,7 +167,6 @@ const getGuideProfileDetails = async (req, res) => {
       return res.status(404).json({ error: "Guide not found" });
     }
 
-    // Return the guide details
     return res.status(200).json(guide);
   } catch (error) {
     console.error("Error fetching guide profile details:", error);
