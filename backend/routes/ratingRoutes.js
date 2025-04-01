@@ -1,11 +1,12 @@
-const express = require('express');
+// ratingRoutes.js
+const express = require("express");
 const router = express.Router();
-const rateController = require('./controllers/ratingController');
+const { createRating, getRatings } = require("../controllers/ratingController");
 
-// Route to add a new rating
-router.post('/rate', rateController.addRating);
+// Define route for creating a rating at '/createRating'
+router.post("/createRating", createRating);
 
-// Routes to get ratings by hotel or guide
-router.get('/ratings/:type/:id', rateController.getRatings);
+// Define route for retrieving ratings, e.g., GET /api/rate/guide/123
+router.get("/:type/:id", getRatings);
 
 module.exports = router;

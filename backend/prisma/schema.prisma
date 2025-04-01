@@ -23,12 +23,13 @@ model User {
   hotels           Hotel[]
   bookings         UserBooking[]
   hotelBookings    HotelBooking[]
-  friends          User[]        @relation("UserFriends")
-  Message          Message[]     @relation("Sender")
-  receivedMessages Message[]     @relation("Receiver")
-  User             User[]        @relation("UserFriends")
-  Requestfrom      Request[]     @relation("RequestFrom")
-  Requestuser      Request[]     @relation("RequestUser")
+  friends          User[]         @relation("UserFriends")
+  Message          Message[]      @relation("Sender")
+  receivedMessages Message[]      @relation("Receiver")
+  User             User[]         @relation("UserFriends")
+  Requestfrom      Request[]      @relation("RequestFrom")
+  Requestuser      Request[]      @relation("RequestUser")
+  ratings          Rating[]       // Relation to ratings submitted by this user
 }
 
 model Guide {
@@ -45,6 +46,8 @@ model Guide {
   verificationImage String?       @db.LongText
   createdAt         DateTime      @default(now())
   bookings          UserBooking[]
+  ratings           Rating[]      // Relation to ratings for this guide
+  charge            Float
 }
 
 enum Role {
@@ -71,6 +74,7 @@ model Hotel {
   userId         Int            @unique
   user           User           @relation(fields: [userId], references: [id])
   hotelBookings  HotelBooking[]
+  ratings        Rating[]       // Relation to ratings for this hotel
 }
 
 model UserBooking {
@@ -82,8 +86,7 @@ model UserBooking {
   startDate     DateTime?
   endDate       DateTime?
   paymentStatus Boolean   @default(false)
-
-  createdAt DateTime @default(now())
+  createdAt     DateTime  @default(now())
 }
 
 model HotelBooking {
@@ -96,8 +99,7 @@ model HotelBooking {
   endDate       DateTime
   rooms         Int
   paymentStatus Boolean  @default(false)
-
-  createdAt DateTime @default(now())
+  createdAt     DateTime @default(now())
 }
 
 model Request {
@@ -128,4 +130,22 @@ enum status {
   pending
   accepted
   rejected
+}
+
+// Ratings model for hotels and guides
+model Rating {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  userName  String   @db.VarChar(255)
+  rating    Int
+  review    String   @db.VarChar(1024)
+  hotelId   Int?     // Provide if rating a hotel
+  guideId   Int?     // Provide if rating a guide
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user   User  @relation(fields: [userId], references: [id])
+  hotel  Hotel? @relation(fields: [hotelId], references: [id])
+  guide  Guide? @relation(fields: [guideId], references: [id])
 }
