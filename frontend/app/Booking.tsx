@@ -9,6 +9,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
   FlatList,
+  TextInput
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -77,6 +78,28 @@ const Booking = () => {
   const { guideId, guideName, guideSpecialization, guideImage, hotelId } =
     params;
 
+  // ✅ Static Reviews Data
+  const reviews = [
+    {
+      id: "1",
+      name: "John Doe",
+      rating: "⭐⭐⭐⭐⭐",
+      comment: "Amazing guide! Very professional and knowledgeable.",
+    },
+    {
+      id: "2",
+      name: "Jane Smith",
+      rating: "⭐⭐⭐⭐",
+      comment: "Had a great time exploring with this guide!",
+    },
+    {
+      id: "3",
+      name: "Michael Lee",
+      rating: "⭐⭐⭐⭐⭐",
+      comment: "Very friendly and accommodating!",
+    },
+  ];
+
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -86,7 +109,7 @@ const Booking = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState("");
-  const [selectedTab, setSelectedTab] = useState("About"); // "About" or "Reviews"
+  const [selectedTab, setSelectedTab] = useState("About");
   const [guideBookings, setGuideBookings] = useState<Booking[]>([]);
   const [hotelBookings, setHotelBookings] = useState<Booking[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -96,6 +119,13 @@ const Booking = () => {
   const [showBookingDetails, setShowBookingDetails] = useState(false);
   const [numberOfRooms, setNumberOfRooms] = useState(1);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [userRating, setUserRating] = useState<number>(0);
+  const [userReview, setUserReview] = useState<string>("");
+  const [allReviews, setAllReviews] = useState(reviews);
+
+  // Add new state for guide details
+  const [guideDetails, setGuideDetails] = useState<any>(null);
+  const [loadingGuideDetails, setLoadingGuideDetails] = useState(false);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -152,6 +182,53 @@ const Booking = () => {
   useEffect(() => {
     fetchBookings();
   }, []);
+
+  // Add function to fetch guide details
+  const fetchGuideDetails = async () => {
+    if (!guideId) return;
+    
+    try {
+      setLoadingGuideDetails(true);
+      const token = await AsyncStorage.getItem("token");
+      
+      if (!token) {
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        return;
+      }
+
+      console.log("Fetching guide details for ID:", guideId);
+      const response = await axios.get(`${API_BASE_URL}/guides/profile/${guideId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log("Guide details response:", response.data);
+
+      if (response.data && response.data.guide) {
+        setGuideDetails(response.data.guide);
+      } else {
+        console.log("No guide data in response");
+        setGuideDetails(null);
+      }
+    } catch (error: any) {
+      console.error("Error fetching guide details:", error);
+      if (error.response) {
+        console.error("Error response:", error.response.data);
+        Alert.alert("Error", "Failed to fetch guide details. Please try again later.");
+      } else {
+        Alert.alert("Error", "Network error. Please check your connection.");
+      }
+      setGuideDetails(null);
+    } finally {
+      setLoadingGuideDetails(false);
+    }
+  };
+
+  // Add useEffect to fetch guide details when component mounts
+  useEffect(() => {
+    if (guideId) {
+      fetchGuideDetails();
+    }
+  }, [guideId]);
 
   const handleViewBooking = (booking: Booking, type: string) => {
     setSelectedBooking(booking);
@@ -489,28 +566,6 @@ const Booking = () => {
     }
   };
 
-  // ✅ Static Reviews Data
-  const reviews = [
-    {
-      id: "1",
-      name: "John Doe",
-      rating: "⭐⭐⭐⭐⭐",
-      comment: "Amazing guide! Very professional and knowledgeable.",
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      rating: "⭐⭐⭐⭐",
-      comment: "Had a great time exploring with this guide!",
-    },
-    {
-      id: "3",
-      name: "Michael Lee",
-      rating: "⭐⭐⭐⭐⭐",
-      comment: "Very friendly and accommodating!",
-    },
-  ];
-
   const startChat = async (): Promise<void> => {
     try {
       setLoading(true);
@@ -761,31 +816,120 @@ const Booking = () => {
         {/* About Section */}
         {selectedTab === "About" && (
           <View className="mt-4 p-3 gap-5">
-            <Text className="text-gray-600">
-              This guide is an expert in cultural and adventure tours. They have
-              over 10 years of experience leading travelers through the most
-              breathtaking locations, ensuring a safe and unforgettable
-              experience. Lorem ipsum dolor sit amet consectetur, adipisicing
-              elit. Repellendus eum omnis maiores assumenda quos a maxime
-              quisquam dolorum provident velit? Iste quia animi dignissimos esse
-              pariatur rerum, optio molestias sit.
-            </Text>
+            {loadingGuideDetails ? (
+              <View className="items-center justify-center py-4">
+                <ActivityIndicator size="large" color="#3B82F6" />
+                <Text className="mt-2 text-gray-600">Loading guide details...</Text>
+              </View>
+            ) : guideDetails ? (
+              <View className="space-y-4">
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600 font-semibold">Name:</Text>
+                  <Text className="text-gray-600">{guideDetails.name || guideName}</Text>
+                </View>
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600 font-semibold">Specialization:</Text>
+                  <Text className="text-gray-600">{guideDetails.specialization || guideSpecialization}</Text>
+                </View>
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600 font-semibold">Location:</Text>
+                  <Text className="text-gray-600">{guideDetails.location || "Not specified"}</Text>
+                </View>
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600 font-semibold">Contact:</Text>
+                  <Text className="text-gray-600">{guideDetails.phoneNumber || "Not specified"}</Text>
+                </View>
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600 font-semibold">Email:</Text>
+                  <Text className="text-gray-600">{guideDetails.email || "Not specified"}</Text>
+                </View>
+                <View className="flex-row justify-between">
+                  <Text className="text-gray-600 font-semibold">Charge per Day:</Text>
+                  <Text className="text-gray-600">{guideDetails.charge ? `Rs. ${guideDetails.charge}` : "Not specified"}</Text>
+                </View>
+              </View>
+            ) : (
+              <View className="items-center justify-center py-4">
+                <Text className="text-gray-600">No guide details available</Text>
+              </View>
+            )}
           </View>
         )}
 
-        {/* Reviews Section */}
         {selectedTab === "Reviews" && (
-          <FlatList
-            data={reviews}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <View className="mt-4 bg-gray-100 p-3 rounded-lg">
-                <Text className="font-semibold">{item.name}</Text>
-                <Text className="text-yellow-500">{item.rating}</Text>
-                <Text className="text-gray-600">{item.comment}</Text>
-              </View>
-            )}
-          />
+          <View className="mt-4 p-3 space-y-4">
+            {/* Existing Reviews */}
+            <FlatList
+              data={allReviews}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View className="bg-gray-100 p-3 rounded-lg">
+                  <Text className="font-semibold">{item.name}</Text>
+                  <Text className="text-yellow-500">{item.rating}</Text>
+                  <Text className="text-gray-600">{item.comment}</Text>
+                </View>
+              )}
+            />
+
+            {/* Divider */}
+            <View className="border-t border-gray-300 pt-4" />
+
+            {/* New Review Section */}
+            <Text className="text-lg font-bold">Write a Review</Text>
+
+            {/* Star Rating */}
+            <View className="flex-row mb-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => setUserRating(star)}
+                >
+                  <Ionicons
+                    name={star <= userRating ? "star" : "star-outline"}
+                    size={28}
+                    color="#facc15"
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Review Input */}
+            <View className="border border-gray-300 rounded-md p-2">
+              <TextInput
+                multiline
+                numberOfLines={4}
+                placeholder="Write your experience here..."
+                value={userReview}
+                onChangeText={setUserReview}
+                className="text-base text-gray-700"
+              />
+            </View>
+
+            {/* Submit Review */}
+            <TouchableOpacity
+              className="bg-blue-500 p-3 rounded-md items-center mt-2"
+              onPress={() => {
+                if (!userRating || !userReview.trim()) {
+                  Alert.alert("Error", "Please add both rating and comment.");
+                  return;
+                }
+
+                const newReview = {
+                  id: (allReviews.length + 1).toString(),
+                  name: "You",
+                  rating: "⭐".repeat(userRating),
+                  comment: userReview.trim(),
+                };
+
+                setAllReviews([newReview, ...allReviews]);
+                setUserRating(0);
+                setUserReview("");
+                Alert.alert("Thank you!", "Your review has been submitted.");
+              }}
+            >
+              <Text className="text-white font-semibold">Submit Review</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 

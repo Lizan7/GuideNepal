@@ -21,6 +21,19 @@ const GuideProfile = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper function to ensure we don't display NaN values
+  const safeField = (field: any) => {
+    if (
+      field === null ||
+      field === undefined ||
+      field === "NaN" ||
+      (typeof field === "number" && isNaN(field))
+    ) {
+      return "N/A";
+    }
+    return field;
+  };
+
   useEffect(() => {
     fetchGuideDetails();
   }, []);
@@ -28,6 +41,7 @@ const GuideProfile = () => {
   const fetchGuideDetails = async () => {
     try {
       setLoading(true);
+      setError(null); // Reset any previous errors
 
       const token = await AsyncStorage.getItem("token");
       if (!token) {
@@ -52,16 +66,16 @@ const GuideProfile = () => {
         if (response.data.profileImage) {
           let imageUrl = response.data.profileImage;
           console.log("Original Image URL:", imageUrl);
-          
+
           // If the URL doesn't start with http, add the API base URL
-          if (!imageUrl.startsWith('http')) {
+          if (!imageUrl.startsWith("http")) {
             // Remove any leading slash to avoid double slashes
-            imageUrl = imageUrl.startsWith('/') ? imageUrl.slice(1) : imageUrl;
+            imageUrl = imageUrl.startsWith("/") ? imageUrl.slice(1) : imageUrl;
             // Update the path to use guideVerification instead of uploads
-            imageUrl = imageUrl.replace('uploads', 'guideVerification');
+            imageUrl = imageUrl.replace("uploads", "guideVerification");
             imageUrl = `${API_BASE_URL}/${imageUrl}`;
           }
-          
+
           console.log("Final Image URL:", imageUrl);
           setProfileImage(imageUrl);
         } else {
@@ -69,11 +83,34 @@ const GuideProfile = () => {
           setProfileImage("https://via.placeholder.com/100");
         }
       } else {
-        setError("No guide data found.");
+        // If no data is found, set empty guide data instead of error
+        setGuideData({
+          name: null,
+          email: null,
+          phoneNumber: null,
+          specialization: null,
+          location: null,
+          isVerified: false
+        });
+        setProfileImage("https://via.placeholder.com/100");
       }
     } catch (error: any) {
       console.error("Error fetching guide details:", error);
-      setError("Failed to fetch guide details.");
+      // Only set error if it's not a 404 (not found) error
+      if (error.response?.status !== 404) {
+        setError("Failed to fetch guide details.");
+      } else {
+        // If guide not found (404), set empty guide data
+        setGuideData({
+          name: null,
+          email: null,
+          phoneNumber: null,
+          specialization: null,
+          location: null,
+          isVerified: false
+        });
+        setProfileImage("https://via.placeholder.com/100");
+      }
     } finally {
       setLoading(false);
     }
@@ -142,7 +179,7 @@ const GuideProfile = () => {
             />
           </TouchableOpacity>
           <Text className="text-xl font-bold mt-4">
-            {guideData?.name || guideData?.user?.name || "Guide Name"}
+            {safeField(guideData?.name || guideData?.user?.name) || "Not Set"}
           </Text>
         </View>
 
@@ -151,32 +188,38 @@ const GuideProfile = () => {
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Email</Text>
             <Text className="text-gray-500 text-base">
-              {guideData?.email || guideData?.user?.email || "N/A"}
+              {safeField(guideData?.email || guideData?.user?.email) || "Not Set"}
             </Text>
           </View>
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Contact</Text>
             <Text className="text-gray-500 text-base">
-              {guideData?.phoneNumber || "N/A"}
+              {safeField(guideData?.phoneNumber) || "Not Set"}
             </Text>
           </View>
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Specialization</Text>
             <Text className="text-gray-500 text-base">
-              {guideData?.specialization || "N/A"}
+              {safeField(guideData?.specialization) || "Not Set"}
             </Text>
           </View>
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Location</Text>
             <Text className="text-gray-500 text-base">
-              {guideData?.location || "N/A"}
+              {safeField(guideData?.location) || "Not Set"}
+            </Text>
+          </View>
+          <View className="flex flex-row justify-between">
+            <Text className="text-xl text-gray-500">Charge per Day</Text>
+            <Text className="text-gray-500 text-base">
+              {safeField(guideData?.charge) ? `Rs. ${guideData.charge}` : "Not Set"}
             </Text>
           </View>
           <View className="flex flex-row justify-between">
             <Text className="text-xl text-gray-500">Status</Text>
             <Text
               className={`text-base font-bold ${
-                guideData?.isVerified ? "text-green-500" : "text-red-500"
+                guideData?.isVerified ? "text-green-500" : "text-yellow-500"
               }`}
             >
               {guideData?.isVerified ? "Verified" : "Pending Verification"}
@@ -190,7 +233,7 @@ const GuideProfile = () => {
           onPress={() => router.push("./guideRegister")}
         >
           <Text className="text-white font-semibold text-center">
-            {guideData ? "Edit" : "Verify"}
+            {guideData?.name ? "Edit Profile" : "Complete Profile"}
           </Text>
         </TouchableOpacity>
       </View>

@@ -40,20 +40,23 @@ const SignUpScreen = () => {
         role,
       });
 
-      if (response.data.success) {
+      if (response.data.token) {
         await AsyncStorage.setItem("token", response.data.token);
         Alert.alert("Success", "Registration successful!");
         router.replace("/LoginScreen");
       } else {
-        Alert.alert("Error", response.data.error || "Registration failed");
+        Alert.alert("Error", "Registration failed. Please try again.");
       }
-    } catch (error) {
-      Alert.alert(
-        "Error",
-        error.response?.data?.error || "Registration failed"
-      );
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      if (error.response?.data?.error) {
+        Alert.alert("Error", error.response.data.error);
+      } else {
+        Alert.alert("Error", "Registration failed. Please try again.");
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

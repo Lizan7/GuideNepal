@@ -23,6 +23,7 @@ const GuideRegister: React.FC<GuideRegisterProps> = () => {
   const [phoneNumber, setPhoneNumber] = useState<string>("");
   const [location, setLocation] = useState<string>("");
   const [specialization, setSpecialization] = useState<string>("");
+  const [charge, setCharge] = useState<string>("");
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [verificationImage, setVerificationImage] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -51,6 +52,7 @@ const GuideRegister: React.FC<GuideRegisterProps> = () => {
         setPhoneNumber(guideData.phoneNumber || "");
         setLocation(guideData.location || "");
         setSpecialization(guideData.specialization || "");
+        setCharge(guideData.charge || "");
         
         // Set profile image if it exists
         if (guideData.profileImage) {
@@ -97,6 +99,7 @@ const GuideRegister: React.FC<GuideRegisterProps> = () => {
     return phoneNumber.trim() !== "" && 
            location.trim() !== "" && 
            specialization.trim() !== "" &&
+           charge !== "" &&
            (profileImage !== null || isEditing) &&
            (verificationImage !== null || isEditing);
   };
@@ -119,6 +122,7 @@ const GuideRegister: React.FC<GuideRegisterProps> = () => {
       formData.append("phoneNumber", phoneNumber);
       formData.append("location", location);
       formData.append("specialization", specialization);
+      formData.append("charge", parseFloat(charge).toString());
 
       // Only append images if they are new (local URI)
       if (profileImage && profileImage.startsWith('file://')) {
@@ -170,7 +174,7 @@ const GuideRegister: React.FC<GuideRegisterProps> = () => {
   return (
     <View className="flex-1">
       <StatusBar style="light" backgroundColor="#3B82F6" />
-      <View className="bg-[#3B82F6] pt-12">
+      <View className="bg-[#3B82F6]">
         <View className="flex-row items-center p-4 gap-4">
           <TouchableOpacity onPress={() => router.replace("/GuideProfile")}>
             <Ionicons name="arrow-back" size={24} color="white" />
@@ -184,7 +188,8 @@ const GuideRegister: React.FC<GuideRegisterProps> = () => {
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, backgroundColor: "#fff" }}
       >
-        <View className="p-4 mt-8">
+        <Text className="text-gray-700 mb-2 px-4 mt-2">You can register as a guide by filling the following details</Text>
+        <View className="p-4">
           {/* Phone Number */}
           <Text className="text-gray-700 mb-2">Phone Number *</Text>
           <TextInput
@@ -214,6 +219,17 @@ const GuideRegister: React.FC<GuideRegisterProps> = () => {
             placeholderTextColor="gray"
             value={specialization}
             onChangeText={setSpecialization}
+          />
+
+          {/* Charge */}
+          <Text className="text-gray-700 mb-2">Daily Rate (Rs.) *</Text>
+          <TextInput
+            className="w-full p-3 border border-gray-300 rounded-lg mb-4"
+            placeholder="Enter your daily rate"
+            keyboardType="numeric"
+            placeholderTextColor="gray"
+            value={charge}
+            onChangeText={setCharge}
           />
 
           {/* Profile Image */}

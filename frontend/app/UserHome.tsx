@@ -73,22 +73,25 @@ const UserHome = () => {
         },
       });
 
-      console.log("Response Status:", response.status);
-      console.log("Response Data:", response.data);
-      console.log("Response Headers:", response.headers);
-
       if (response.data && response.data.guides) {
         setGuides(response.data.guides);
       } else {
+        setGuides([]);
         console.warn("No guides found in response.");
       }
     } catch (error) {
       if (axios.isAxiosError(error)) {
-        console.error("Axios Error:", error.response?.data || error.message);
-        Alert.alert(
-          "Error",
-          error.response?.data?.message || "Failed to fetch guide details."
-        );
+        // If the error status is 404, set guides to empty without showing an alert
+        if (error.response?.status === 404) {
+          setGuides([]);
+          console.warn("No guides found (404).");
+        } else {
+          console.error("Axios Error:", error.response?.data || error.message);
+          Alert.alert(
+            "Error",
+            error.response?.data?.message || "Failed to fetch guide details."
+          );
+        }
       } else {
         console.error("Unexpected Error:", error);
         Alert.alert("Error", "An unexpected error occurred.");
@@ -115,11 +118,25 @@ const UserHome = () => {
       if (response.data && response.data.hotels) {
         setHotels(response.data.hotels);
       } else {
+        setHotels([]);
         console.warn("No hotels found in response.");
       }
     } catch (error) {
-      console.error("Error fetching hotel details:", error);
-      Alert.alert("Error", "Failed to fetch hotel details.");
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 404) {
+          setHotels([]);
+          console.warn("No hotels found (404).");
+        } else {
+          console.error("Axios Error:", error.response?.data || error.message);
+          Alert.alert(
+            "Error",
+            error.response?.data?.message || "Failed to fetch hotel details."
+          );
+        }
+      } else {
+        console.error("Unexpected Error:", error);
+        Alert.alert("Error", "An unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -130,7 +147,7 @@ const UserHome = () => {
     fetchHotelDetails();
   }, []);
 
-  // Pull-to-refresh
+  // Pull-to-refresh functionality
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchGuideDetails();
@@ -200,72 +217,67 @@ const UserHome = () => {
               guides
             </Text>
           </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            className="mt-3"
-          >
-            {guides.map((guide, index) => {
-              let imageUrl = guide.profileImage;
-
-              // Handle profile image URL
-              if (imageUrl) {
-                if (!imageUrl.startsWith("http")) {
-                  // Remove any leading slash to avoid double slashes
-                  imageUrl = imageUrl.startsWith("/")
-                    ? imageUrl.slice(1)
-                    : imageUrl;
-                  // Update the path to use guideVerification instead of uploads
-                  imageUrl = imageUrl.replace("uploads", "guideVerification");
-                  imageUrl = `${API_BASE_URL}/${imageUrl}`;
-                }
-              } else {
-                // Fallback image if no profile image is available
-                imageUrl = "https://via.placeholder.com/150";
-              }
-
-              console.log("Guide Image URL:", imageUrl);
-              console.log("Guide Data:", guide);
-
-              return (
-                <TouchableOpacity
-                  key={index}
-                  className="ml-4"
-                  onPress={() =>
-                    router.push({
-                      pathname: "/Booking",
-                      params: {
-                        guideId: guide.id,
-                        guideName:
-                          guide.name || guide.user?.name || guide.email,
-                        guideSpecialization: guide.specialization,
-                        guideImage: imageUrl,
-                      },
-                    })
+          {guides.length === 0 ? (
+            <Text className="text-gray-500 mt-4 px-4">
+              No guides available.
+            </Text>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mt-3"
+            >
+              {guides.map((guide, index) => {
+                let imageUrl = guide.profileImage;
+                if (imageUrl) {
+                  if (!imageUrl.startsWith("http")) {
+                    imageUrl = imageUrl.startsWith("/")
+                      ? imageUrl.slice(1)
+                      : imageUrl;
+                    imageUrl = imageUrl.replace("uploads", "guideVerification");
+                    imageUrl = `${API_BASE_URL}/${imageUrl}`;
                   }
-                >
-                  <Image
-                    source={{ uri: imageUrl }}
-                    className="w-60 h-64 rounded-xl mr-4"
-                    onError={(e) => {
-                      console.log(
-                        "Guide Image Load Error:",
-                        e.nativeEvent.error
-                      );
-                      console.log("Failed to load image from URL:", imageUrl);
-                      console.log("Guide Data:", guide);
-                    }}
-                  />
-                  <Text className="font-semibold mt-2 text-lg px-2">
-                    {guide.name || guide.user?.name || guide.email}
-                  </Text>
-                  <Text className="text-gray-500 text-base px-2">
-                    {guide.specialization || "No specialization listed"}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                } else {
+                  imageUrl = "https://via.placeholder.com/150";
+                }
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    className="ml-4"
+                    onPress={() =>
+                      router.push({
+                        pathname: "/Booking",
+                        params: {
+                          guideId: guide.id,
+                          guideName:
+                            guide.name || guide.user?.name || guide.email,
+                          guideSpecialization: guide.specialization,
+                          guideImage: imageUrl,
+                        },
+                      })
+                    }
+                  >
+                    <Image
+                      source={{ uri: imageUrl }}
+                      className="w-60 h-64 rounded-xl mr-4"
+                      onError={(e) =>
+                        console.log(
+                          "Guide Image Load Error:",
+                          e.nativeEvent.error
+                        )
+                      }
+                    />
+                    <Text className="font-semibold mt-2 text-lg px-2">
+                      {guide.name || guide.user?.name || guide.email}
+                    </Text>
+                    <Text className="text-gray-500 text-base px-2">
+                      {guide.specialization || "No specialization listed"}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
 
           <ScrollView
             vertical
@@ -296,30 +308,17 @@ const UserHome = () => {
                 >
                   {hotels.map((hotel, index) => {
                     let imageUrl = hotel.profileImage;
-
-                    // Handle hotel image URL
                     if (imageUrl) {
                       if (!imageUrl.startsWith("http")) {
-                        // Remove any leading slash to avoid double slashes
                         imageUrl = imageUrl.startsWith("/")
                           ? imageUrl.slice(1)
                           : imageUrl;
-
                         imageUrl = imageUrl.replace("uploads", "hotelUploads");
-
-                        // Construct the full URL with the correct path
                         imageUrl = `${API_BASE_URL}/${imageUrl}`;
                       }
                     } else {
-                      // Fallback image if no hotel image is available
                       imageUrl = "https://via.placeholder.com/300";
                     }
-
-                    console.log("API Base URL:", API_BASE_URL);
-                    console.log("Original Hotel Profile:", hotel.profileImage);
-                    console.log("Constructed Hotel Image URL:", imageUrl);
-                    console.log("Complete Hotel Data:", hotel);
-
                     return (
                       <TouchableOpacity
                         key={index}
@@ -340,18 +339,12 @@ const UserHome = () => {
                         <Image
                           source={{ uri: imageUrl }}
                           className="w-60 h-64 rounded-xl mr-4"
-                          onError={(e) => {
+                          onError={(e) =>
                             console.log(
                               "Hotel Image Load Error:",
                               e.nativeEvent.error
-                            );
-                            console.log(
-                              "Failed to load image from URL:",
-                              imageUrl
-                            );
-                            console.log("Complete Hotel Data:", hotel);
-                            console.log("API Base URL:", API_BASE_URL);
-                          }}
+                            )
+                          }
                         />
                         <View>
                           <Text className="font-semibold mt-3 text-lg">
@@ -378,8 +371,6 @@ const UserHome = () => {
             <Text className="text-green-700 mt-2">
               Discover experiences based on your interest
             </Text>
-
-            {/* Experience Categories */}
             <View className="mt-2 px-10 gap-3">
               {experiences.map((exp) => (
                 <TouchableOpacity
@@ -398,7 +389,6 @@ const UserHome = () => {
 
           {/* Why GuideNepal? */}
           <View className="bg-pink-900 p-6 rounded-2xl mx-4 mt-6">
-            {/* Header */}
             <View className="flex-row items-center justify-center gap-3 px-4">
               <Image
                 source={require("../assets/images/Logo.png")}
@@ -410,10 +400,7 @@ const UserHome = () => {
               Why you should book a{" "}
               <Text className="text-white font-bold">GuideNepal</Text>
             </Text>
-
-            {/* Features */}
             <View className="mt-6 space-y-6">
-              {/* Customizable */}
               <View className="flex items-center">
                 <View className="bg-white rounded-full">
                   <Image
@@ -428,8 +415,6 @@ const UserHome = () => {
                   Let your local host tailor the tour completely to your wishes.
                 </Text>
               </View>
-
-              {/* Private Guided Tours */}
               <View className="flex items-center mt-6">
                 <Image
                   source={require("../assets/icons/guide.png")}
@@ -442,8 +427,6 @@ const UserHome = () => {
                   No strangers on your tour. It's just you and your local host.
                 </Text>
               </View>
-
-              {/* Responsible */}
               <View className="flex items-center mt-6">
                 <Image
                   source={require("../assets/icons/eco.png")}
