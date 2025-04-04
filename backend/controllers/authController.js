@@ -35,12 +35,13 @@ const register = async (req, res) => {
         await sendMail(newUser.email, "Welcome to GuideNepal!", `Hello ${newUser.name}, welcome to GuideNepal!`);
 
         const token = jwt.sign({ id: newUser.id, role: newUser.role }, JWT_SECRET, { expiresIn: "30d" });
-
         return res.status(201).json({
             success: true,
             message: "Registration successful",
             data: { user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role }, token },
         });
+
+        
     } catch (error) {
         console.error("Registration error:", error);
         return res.status(500).json({ success: false, error: "Unable to complete registration" });
@@ -79,11 +80,15 @@ const login = async (req, res) => {
 
         const token = jwt.sign({ id: user.id, email:user.email, role: user.role }, JWT_SECRET, { expiresIn: "30d" });
 
-        return res.status(200).json({
+        const response = {
             success: true,
             message: "Login successful",
             data: { user: { id: user.id, email: user.email, role: user.role }, token },
-        });
+        };
+        
+        console.log("Login Response:", response); // 🔹 Print the response
+        
+        return res.status(200).json(response);
     } catch (error) {
         console.error("Login error:", error);
         return res.status(500).json({ success: false, error: "Unable to complete login" });

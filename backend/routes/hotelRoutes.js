@@ -1,11 +1,19 @@
 const express = require("express");
 const { authenticateUser } = require("../middlewares/authMiddleware");
-const { verifyHotelDetails, getHotels, getHotelById } = require("../controllers/hotelController");
+const { verifyHotelDetails, getHotels, getHotelById, getHotelLocations } = require("../controllers/hotelController");
 
 const router = express.Router();
 
-router.post("/verify", authenticateUser(["HOTEL"]), verifyHotelDetails); // ✅ Only HOTEL role can verify
-router.get("/hotelDetails", authenticateUser(), getHotels); // ✅ Any logged-in user can view hotels
-router.get("/:id", authenticateUser(), getHotelById); // ✅ Any logged-in user can view hotel details
+// Hotel verification route
+router.post("/verify", authenticateUser(["HOTEL"]), verifyHotelDetails);
+
+// Get all hotels
+router.get("/", authenticateUser(), getHotels);
+
+// Get all hotel locations
+router.get("/locations", authenticateUser(), getHotelLocations);
+
+// Get hotel by ID - this must come after other specific routes
+router.get("/:id", authenticateUser(), getHotelById);
 
 module.exports = router;

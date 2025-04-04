@@ -174,4 +174,34 @@ const getGuideProfileDetails = async (req, res) => {
   }
 };
 
-module.exports = { storeGuideDetails, getGuideDetails, getGuideProfileDetails };
+const getGuideLocations = async (req, res) => {
+  try {
+    // Get all unique locations from guides and count guides in each location
+    const guides = await prisma.guide.findMany({
+      select: {
+        location: true,
+      },
+    });
+
+    // Count guides by location
+    const locationCounts = {};
+    guides.forEach(guide => {
+      if (guide.location) {
+        locationCounts[guide.location] = (locationCounts[guide.location] || 0) + 1;
+      }
+    });
+
+    // Format the response
+    const locations = Object.keys(locationCounts).map(name => ({
+      name,
+      count: locationCounts[name]
+    }));
+
+    return res.status(200).json({ locations });
+  } catch (error) {
+    console.error("Error fetching guide locations:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+module.exports = { storeGuideDetails, getGuideDetails, getGuideProfileDetails, getGuideLocations };

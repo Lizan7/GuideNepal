@@ -4,7 +4,16 @@ const prisma = new PrismaClient();
 // Create a new rating for a hotel or guide
 const createRating = async (req, res) => {
   try {
-    const { userId, userName, hotelId, guideId, rating, review } = req.body;
+    // Extract user info from the token
+    if (!req.user || !req.user.id || !req.user.name) {
+      console.error("❌ Unauthorized request: User data is missing from request");
+      return res.status(401).json({ error: "Unauthorized - User not found in request" });
+    }
+
+    const userId = req.user.id;
+    const userName = req.user.name;
+
+    const { hotelId, guideId, rating, review } = req.body;
 
     // Ensure that either hotelId or guideId is provided, but not both.
     if (!hotelId && !guideId) {
@@ -43,6 +52,11 @@ const createRating = async (req, res) => {
 const getRatings = async (req, res) => {
   try {
     const { type, id } = req.params;
+    
+    if (!id) {
+      return res.status(400).json({ error: "ID is required" });
+    }
+    
     let query = {};
 
     if (type === "hotel") {
@@ -56,9 +70,29 @@ const getRatings = async (req, res) => {
     const ratings = await prisma.rating.findMany({
       where: query,
       orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+          }
+        }
+      }
     });
 
-    return res.status(200).json({ success: true, ratings });
+    // Calculate average rating
+    let averageRating = 0;
+    if (ratings.length > 0) {
+      const totalRating = ratings.reduce((sum, rating) => sum + rating.rating, 0);
+      averageRating = totalRating / ratings.length;
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      ratings,
+      averageRating: parseFloat(averageRating.toFixed(1)),
+      totalRatings: ratings.length
+    });
   } catch (error) {
     console.error("Error retrieving ratings:", error);
     return res.status(500).json({ error: "Internal Server Error" });
