@@ -191,8 +191,40 @@ const getHotelById = async (req, res) => {
   }
 };
 
+// Get all unique locations from hotels
+const getHotelLocations = async (req, res) => {
+  try {
+    // Get all unique locations from hotels and count hotels in each location
+    const hotels = await prisma.hotel.findMany({
+      select: {
+        location: true,
+      },
+    });
+
+    // Count hotels by location
+    const locationCounts = {};
+    hotels.forEach(hotel => {
+      if (hotel.location) {
+        locationCounts[hotel.location] = (locationCounts[hotel.location] || 0) + 1;
+      }
+    });
+
+    // Format the response
+    const locations = Object.keys(locationCounts).map(name => ({
+      name,
+      count: locationCounts[name]
+    }));
+
+    return res.status(200).json({ locations });
+  } catch (error) {
+    console.error("Error fetching hotel locations:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 module.exports = {
   verifyHotelDetails,
   getHotels,
   getHotelById,
+  getHotelLocations,
 };
