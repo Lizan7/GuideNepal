@@ -21,6 +21,16 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import API_BASE_URL from "@/config";
+import { WebView } from "react-native-webview";
+
+// Add type for the error
+interface KhaltiError {
+  message: string;
+  response?: {
+    data?: any;
+    status?: number;
+  };
+}
 
 // Define interface for hotel details
 interface HotelDetails {
@@ -77,6 +87,12 @@ const HotelBooking = () => {
   const [loadingRatings, setLoadingRatings] = useState(false);
   const [averageRating, setAverageRating] = useState(0);
   const [totalRatings, setTotalRatings] = useState(0);
+  
+  // Add new state variables for payment
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [paymentUrl, setPaymentUrl] = useState("");
+  const [pidx, setPidx] = useState("");
+  const [bookingConfirmed, setBookingConfirmed] = useState(false);
 
   // Function to fetch ratings
   const fetchRatings = async () => {
@@ -219,38 +235,72 @@ const HotelBooking = () => {
     }
   }, [hotelId]);
 
-  // ✅ Function to confirm hotel booking
-  const confirmHotelBooking = async () => {
+  // Calculate payment amount based on number of days and hotel price
+  const calculatePaymentAmount = (startDate: Date, endDate: Date, pricePerNight: number, numberOfRooms: number): number => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays * pricePerNight * numberOfRooms * 100; // Convert to paisa for Khalti
+  };
+
+  // Function to handle Khalti payment
+  const handleKhaltiPayment = async (): Promise<void> => {
+    console.log("🔵 handleKhaltiPayment started");
     try {
+      console.log("🔵 Setting loading state to true");
       setLoading(true);
-      const token = await AsyncStorage.getItem("token");
-
-      if (!token || !userId) {
-        Alert.alert("Error", "User authentication failed. Please log in.");
-        setLoading(false);
-        return;
-      }
-
+      setBookingConfirmed(false);
+      
       if (startDate > endDate) {
         Alert.alert("Invalid Dates ❌", "Start date must be before end date.");
         setLoading(false);
         return;
       }
+      
+      const token = await AsyncStorage.getItem("token");
+      console.log("🔵 Token retrieved:", token ? "Token exists" : "No token found");
 
-      const bookingData = {
-        userId: parseInt(userId),
-        hotelId: parseInt(hotelId),
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        rooms: parseInt(rooms),
-        paymentStatus: false,
-      };
+      if (!token) {
+        console.log("🔵 No token found, showing error alert");
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        setLoading(false);
+        return;
+      }
 
-      console.log("🔹 Sending Booking Data:", bookingData);
+      // Get hotel price from details or use default
+      const pricePerNight = hotelDetails?.price || parseInt(hotelPrice) || 2000;
+      const numberOfRooms = parseInt(rooms);
+      
+      // Calculate total amount
+      const amount = calculatePaymentAmount(startDate, endDate, pricePerNight, numberOfRooms);
+      console.log("Calculated payment amount:", amount, "paisa (", amount/100, "rupees)");
+      
+      // Create a unique order ID
+      const orderId = `HOTEL-ORDER-${Date.now()}`;
+      
+      // Create a descriptive order name
+      const orderName = `Hotel Booking - ${hotelName} (${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()})`;
 
+      console.log("Initiating Khalti payment with:", {
+        amount,
+        orderId,
+        orderName
+      });
+
+      // Use the same endpoint as guide booking
       const response = await axios.post(
-        `${API_BASE_URL}/hotelbooking/hotel/create`,
-        bookingData,
+        `${API_BASE_URL}/payment/initiate-payment`,
+        {
+          amount,
+          orderId,
+          orderName,
+          customerInfo: {
+            name: userId,
+            email: "user@example.com",
+            // Remove mobile number to match guide booking implementation
+          },
+        },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -259,23 +309,139 @@ const HotelBooking = () => {
         }
       );
 
-      console.log("✅ Booking Success:", response.data);
+      console.log("Khalti Payment Response:", response.data);
 
-      Alert.alert(
-        "Booking Confirmed ✅",
-        `Your stay at ${
-          hotelDetails?.name || hotelName
-        } from ${startDate.toDateString()} to ${endDate.toDateString()} has been booked!`
+      if (response.data && response.data.payment_url) {
+        setPaymentUrl(response.data.payment_url);
+        setPidx(response.data.pidx); // Store pidx for verification
+        setModalVisible(false);
+        setPaymentModalVisible(true);
+      } else {
+        Alert.alert("Error", "Failed to initiate Khalti payment.");
+        setLoading(false);
+      }
+    } catch (error) {
+      const khaltiError = error as KhaltiError;
+      console.error(
+        "Khalti Payment Error Details:",
+        {
+          message: khaltiError.message,
+          response: khaltiError.response?.data,
+          status: khaltiError.response?.status
+        }
+      );
+      
+      // Extract detailed error message if available
+      const errorMessage = khaltiError.response?.data?.details || 
+                          khaltiError.response?.data?.error || 
+                          khaltiError.message || 
+                          "Could not start Khalti payment.";
+      
+      Alert.alert("Payment Error ❌", errorMessage);
+      setLoading(false);
+    }
+  };
+
+  // Function to confirm hotel booking after payment
+  const confirmHotelBooking = async (): Promise<void> => {
+    try {
+      if (bookingConfirmed) {
+        console.log('Booking already confirmed, skipping confirmation');
+        return;
+      }
+
+      setLoading(true);
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        Alert.alert('Error', 'Please login to continue');
+        return;
+      }
+
+      // Get userId from AsyncStorage
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        Alert.alert('Error', 'User ID not found. Please login again.');
+        return;
+      }
+
+      // First verify the payment
+      const paymentVerification = await axios.post(
+        `${API_BASE_URL}/payment/verify-payment`,
+        { pidx },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
       );
 
-      setModalVisible(false);
-      router.push("/UserHome");
+      console.log('Payment verification response:', paymentVerification.data);
+
+      if (!paymentVerification.data.success) {
+        throw new Error(paymentVerification.data.error || 'Payment verification failed');
+      }
+
+      // Then create the hotel booking
+      const bookingData = {
+        hotelId: parseInt(hotelId),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        rooms: parseInt(rooms),
+        paymentStatus: true,
+        // Don't send pidx to avoid backend verification
+        // pidx: pidx
+      };
+
+      console.log('Creating hotel booking with data:', bookingData);
+
+      // Use the correct endpoint for hotel booking creation
+      const hotelBookingResponse = await axios.post(
+        `${API_BASE_URL}/booking/hotel/create`,
+        bookingData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      console.log('Hotel booking response:', hotelBookingResponse.data);
+
+      if (hotelBookingResponse.data.success) {
+        setBookingConfirmed(true);
+        Alert.alert(
+          'Success',
+          'Hotel booking confirmed successfully!',
+          [{ text: 'OK', onPress: () => setPaymentModalVisible(false) }]
+        );
+      } else {
+        throw new Error(hotelBookingResponse.data.error || 'Failed to create hotel booking');
+      }
     } catch (error: any) {
-      console.error("❌ Booking Error:", error.response?.data || error.message);
-      Alert.alert(
-        "Booking Failed ❌",
-        error.response?.data?.message || "An error occurred while booking."
-      );
+      console.error('Hotel booking error:', error);
+      
+      // Check if the error is due to overlapping bookings
+      if (error.response && error.response.status === 400 && error.response.data.error) {
+        const errorMessage = error.response.data.error;
+        const existingBooking = error.response.data.existingBooking;
+        
+        if (existingBooking) {
+          const startDate = new Date(existingBooking.startDate).toLocaleDateString();
+          const endDate = new Date(existingBooking.endDate).toLocaleDateString();
+          
+          Alert.alert(
+            'Booking Conflict',
+            `${errorMessage}\n\nBooked from ${startDate} to ${endDate}.`,
+            [{ text: 'OK' }]
+          );
+        } else {
+          Alert.alert('Error', errorMessage);
+        }
+      } else {
+        Alert.alert('Error', error.message || 'Failed to confirm hotel booking');
+      }
     } finally {
       setLoading(false);
     }
@@ -561,18 +727,58 @@ const HotelBooking = () => {
                 {/* Submit Booking Button */}
                 <TouchableOpacity
                   className="mt-6 bg-green-600 p-3 rounded-lg items-center"
-                  onPress={confirmHotelBooking}
+                  onPress={handleKhaltiPayment}
                 >
                   {loading ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text className="text-white font-bold">Submit Booking</Text>
+                    <Text className="text-white font-bold">Pay with Khalti</Text>
                   )}
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal
+        visible={paymentModalVisible}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={() => setPaymentModalVisible(false)}
+      >
+        <WebView
+          source={{ uri: paymentUrl }}
+          onNavigationStateChange={(navState) => {
+            console.log("Navigating to:", navState.url);
+            
+            // Check if the URL contains the payment verification endpoint
+            if (navState.url.includes("/payment/verify-payment") || 
+                navState.url.includes("/khalti/verify-payment")) {
+              
+              // Extract pidx from URL if available
+              const pidxMatch = navState.url.match(/[?&]pidx=([^&]+)/);
+              if (pidxMatch && pidxMatch[1]) {
+                setPidx(pidxMatch[1]);
+              }
+              
+              // Extract status from URL if available
+              const statusMatch = navState.url.match(/[?&]status=([^&]+)/);
+              if (statusMatch && statusMatch[1] === "Completed" && !bookingConfirmed) {
+                setPaymentModalVisible(false);
+                setBookingConfirmed(true);
+                confirmHotelBooking();
+              }
+            }
+          }}
+        />
+        <TouchableOpacity
+          className="absolute top-10 right-5 p-3 rounded-full"
+          onPress={() => setPaymentModalVisible(false)}
+        >
+          <Ionicons name="close" size={24} color="black" />
+        </TouchableOpacity>
       </Modal>
 
       {/* Review Submission Bottom Sheet */}
