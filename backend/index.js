@@ -13,6 +13,7 @@ const khaltiRoutes = require("./routes/paymentRoutes");
 const chatbotRoutes = require("./routes/chatbotRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const rateRoutes = require("./routes/ratingRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
 // const adminRoutes = require("./routes/adminRoutes");
 
 
@@ -39,6 +40,7 @@ app.use("/api/khalti", khaltiRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/rate", rateRoutes);
+app.use("/api/payment", paymentRoutes);
 
 // app.use("/api/admin", adminRoutes);
 

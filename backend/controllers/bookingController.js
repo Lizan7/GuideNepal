@@ -35,24 +35,68 @@ const createUserBooking = async (req, res) => {
     const existingBooking = await prisma.userBooking.findFirst({
       where: {
         guideId: parseInt(guideId),
-        status: "confirmed",
+        paymentStatus: true,
         OR: [
           {
-            startDate: { lte: end },
-            endDate: { gte: start },
+            // Case 1: New booking starts during an existing booking
+            AND: [
+              { startDate: { gte: start } },
+              { startDate: { lte: end } }
+            ]
           },
+          {
+            // Case 2: New booking ends during an existing booking
+            AND: [
+              { endDate: { gte: start } },
+              { endDate: { lte: end } }
+            ]
+          },
+          {
+            // Case 3: New booking completely encompasses an existing booking
+            AND: [
+              { startDate: { lte: start } },
+              { endDate: { gte: end } }
+            ]
+          },
+          {
+            // Case 4: New booking starts before and ends during an existing booking
+            AND: [
+              { startDate: { lte: start } },
+              { endDate: { gte: start } },
+              { endDate: { lte: end } }
+            ]
+          },
+          {
+            // Case 5: New booking starts during and ends after an existing booking
+            AND: [
+              { startDate: { gte: start } },
+              { startDate: { lte: end } },
+              { endDate: { gte: end } }
+            ]
+          }
         ],
       },
     });
 
     if (existingBooking) {
-      return res.status(400).json({ 
-        error: "This guide is already booked during these dates.",
-        existingBooking: {
-          startDate: existingBooking.startDate,
-          endDate: existingBooking.endDate
-        }
-      });
+      // Check if the existing booking is by the same user
+      if (existingBooking.userId === parseInt(userId)) {
+        return res.status(400).json({ 
+          error: "You have already booked this guide for these dates.",
+          existingBooking: {
+            startDate: existingBooking.startDate,
+            endDate: existingBooking.endDate
+          }
+        });
+      } else {
+        return res.status(400).json({ 
+          error: "This guide is not available between these dates as they are already booked.",
+          existingBooking: {
+            startDate: existingBooking.startDate,
+            endDate: existingBooking.endDate
+          }
+        });
+      }
     }
 
     // Create booking for multiple days
@@ -62,8 +106,7 @@ const createUserBooking = async (req, res) => {
         guideId: parseInt(guideId),
         startDate: start,
         endDate: end,
-        paymentStatus: paymentStatus ?? false,
-        status: paymentStatus ? "confirmed" : "pending"
+        paymentStatus: paymentStatus ?? false
       },
     });
 
@@ -119,26 +162,78 @@ const createHotelBooking = async (req, res) => {
     const existingBookings = await prisma.hotelBooking.findMany({
       where: {
         hotelId: parseInt(hotelId),
-        status: "confirmed",
+        paymentStatus: true,
         OR: [
           {
-            startDate: { lte: end },
-            endDate: { gte: start },
+            // Case 1: New booking starts during an existing booking
+            AND: [
+              { startDate: { gte: start } },
+              { startDate: { lte: end } }
+            ]
           },
+          {
+            // Case 2: New booking ends during an existing booking
+            AND: [
+              { endDate: { gte: start } },
+              { endDate: { lte: end } }
+            ]
+          },
+          {
+            // Case 3: New booking completely encompasses an existing booking
+            AND: [
+              { startDate: { lte: start } },
+              { endDate: { gte: end } }
+            ]
+          },
+          {
+            // Case 4: New booking starts before and ends during an existing booking
+            AND: [
+              { startDate: { lte: start } },
+              { endDate: { gte: start } },
+              { endDate: { lte: end } }
+            ]
+          },
+          {
+            // Case 5: New booking starts during and ends after an existing booking
+            AND: [
+              { startDate: { gte: start } },
+              { startDate: { lte: end } },
+              { endDate: { gte: end } }
+            ]
+          }
         ],
       },
     });
 
     // Calculate total booked rooms for the date range
-    const totalBookedRooms = existingBookings.reduce((sum, booking) => sum + booking.numberOfRooms, 0);
-    const availableRooms = hotel.totalRooms - totalBookedRooms;
+    const totalBookedRooms = existingBookings.reduce((sum, booking) => sum + booking.rooms, 0);
+    const availableRooms = hotel.roomsAvailable - totalBookedRooms;
 
     if (numberOfRooms > availableRooms) {
-      return res.status(400).json({ 
-        error: "Not enough rooms available for the selected dates.",
-        availableRooms,
-        requestedRooms: numberOfRooms
-      });
+      // Check if the user has already booked rooms for these dates
+      const userExistingBooking = existingBookings.find(booking => booking.userId === parseInt(userId));
+      
+      if (userExistingBooking) {
+        return res.status(400).json({ 
+          error: "You have already booked rooms for these dates.",
+          existingBooking: {
+            startDate: userExistingBooking.startDate,
+            endDate: userExistingBooking.endDate,
+            rooms: userExistingBooking.rooms
+          }
+        });
+      } else {
+        return res.status(400).json({ 
+          error: "Not enough rooms available for the selected dates.",
+          availableRooms,
+          requestedRooms: numberOfRooms,
+          existingBookings: existingBookings.map(booking => ({
+            startDate: booking.startDate,
+            endDate: booking.endDate,
+            rooms: booking.rooms
+          }))
+        });
+      }
     }
 
     // Create hotel booking
@@ -242,9 +337,152 @@ const getGuideBookings = async (req, res) => {
   }
 };
 
+// Check guide availability for specific dates
+const checkGuideAvailability = async (req, res) => {
+  try {
+    const { guideId, startDate, endDate } = req.body;
+    const userId = req.user.id;
+
+    console.log("Checking guide availability for:", {
+      guideId,
+      startDate,
+      endDate,
+      userId
+    });
+
+    // Validate input
+    if (!guideId || !startDate || !endDate) {
+      console.log("Missing required fields:", { guideId, startDate, endDate });
+      return res.status(400).json({ 
+        error: "Guide ID, start date, and end date are required." 
+      });
+    }
+
+    // Parse guideId to ensure it's a number
+    const parsedGuideId = parseInt(guideId);
+    if (isNaN(parsedGuideId)) {
+      console.log("Invalid guide ID format:", guideId);
+      return res.status(400).json({ 
+        error: "Invalid guide ID format." 
+      });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    console.log("Parsed dates:", {
+      start: start.toISOString(),
+      end: end.toISOString()
+    });
+
+    if (start > end) {
+      console.log("Invalid date range: start date is after end date");
+      return res.status(400).json({ error: "Start date must be before end date." });
+    }
+
+    // Ensure guide exists
+    const guide = await prisma.guide.findUnique({ 
+      where: { id: parsedGuideId },
+      select: { id: true }
+    });
+
+    console.log("Found guide:", guide);
+
+    if (!guide) {
+      console.log("Guide not found with ID:", parsedGuideId);
+      return res.status(404).json({ error: "Guide not found" });
+    }
+
+    // Check if there are overlapping bookings
+    console.log("Checking for overlapping bookings...");
+    
+    // First, get all bookings for this guide to log them
+    const allGuideBookings = await prisma.userBooking.findMany({
+      where: {
+        guideId: parsedGuideId,
+        paymentStatus: true
+      },
+      orderBy: {
+        startDate: 'asc'
+      }
+    });
+    
+    console.log("All bookings for guide:", parsedGuideId);
+    allGuideBookings.forEach((booking, index) => {
+      console.log(`Booking ${index + 1}:`, {
+        id: booking.id,
+        userId: booking.userId,
+        startDate: booking.startDate.toISOString().split('T')[0],
+        endDate: booking.endDate.toISOString().split('T')[0]
+      });
+    });
+    
+    // Check for any overlapping bookings using a more direct approach
+    let isOverlapping = false;
+    let overlappingBooking = null;
+    
+    for (const booking of allGuideBookings) {
+      // Normalize dates by setting time to midnight
+      const bookingStart = new Date(booking.startDate);
+      bookingStart.setHours(0, 0, 0, 0);
+      
+      const bookingEnd = new Date(booking.endDate);
+      bookingEnd.setHours(23, 59, 59, 999);
+      
+      const requestStart = new Date(start);
+      requestStart.setHours(0, 0, 0, 0);
+      
+      const requestEnd = new Date(end);
+      requestEnd.setHours(23, 59, 59, 999);
+      
+      console.log("Comparing normalized dates:", {
+        bookingStart: bookingStart.toISOString(),
+        bookingEnd: bookingEnd.toISOString(),
+        requestStart: requestStart.toISOString(),
+        requestEnd: requestEnd.toISOString()
+      });
+      
+      // Check if the new booking overlaps with this existing booking
+      if (requestStart <= bookingEnd && requestEnd >= bookingStart) {
+        console.log("Overlap detected!");
+        isOverlapping = true;
+        overlappingBooking = booking;
+        break;
+      }
+    }
+    
+    console.log("Overlap check result:", isOverlapping ? "Found overlap" : "No overlap");
+
+    if (isOverlapping && overlappingBooking) {
+      console.log("Found overlapping booking:", {
+        id: overlappingBooking.id,
+        userId: overlappingBooking.userId,
+        startDate: overlappingBooking.startDate,
+        endDate: overlappingBooking.endDate
+      });
+      
+      return res.status(200).json({ 
+        available: false,
+        existingBooking: {
+          startDate: overlappingBooking.startDate,
+          endDate: overlappingBooking.endDate,
+          userId: overlappingBooking.userId
+        }
+      });
+    }
+
+    console.log("No overlapping bookings found, guide is available");
+    return res.status(200).json({ available: true });
+  } catch (error) {
+    console.error("Availability Check Error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 module.exports = { 
   createUserBooking, 
   createHotelBooking,
   getUserBookings, 
-  getGuideBookings 
+  getGuideBookings,
+  checkGuideAvailability
 };
