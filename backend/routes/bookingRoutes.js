@@ -8,10 +8,14 @@ const {
   getGuideBookings,
   checkGuideAvailability
 } = require("../controllers/bookingController");
+const { createHotelBooking } = require("../controllers/hotelBookController");
 const prisma = new PrismaClient();
 
 // Create a new booking
 router.post("/create", authenticateUser(), createUserBooking);
+
+// Create a new hotel booking
+router.post("/hotel/create", authenticateUser(), createHotelBooking);
 
 // Get all bookings for the logged-in user
 router.get("/user/:userId", authenticateUser(), getUserBookings);
