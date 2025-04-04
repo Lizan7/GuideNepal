@@ -111,7 +111,7 @@ const UserHome = () => {
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}/hotels/hotelDetails`, {
+      const response = await axios.get(`${API_BASE_URL}/hotels`, {
         headers: { Authorization: `Bearer ${token.trim()}` },
       });
 

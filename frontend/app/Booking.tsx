@@ -9,7 +9,11 @@ import {
   Modal,
   TouchableWithoutFeedback,
   FlatList,
-  TextInput
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -72,34 +76,26 @@ interface HotelBookingData {
   paymentStatus: boolean;
 }
 
+// Add interface for Rating
+interface Rating {
+  id: number;
+  userId: number;
+  userName: string;
+  rating: number;
+  review: string;
+  hotelId: number | null;
+  guideId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const Booking = () => {
   const router = useRouter();
   const params = useLocalSearchParams<RouteParams>();
   const { guideId, guideName, guideSpecialization, guideImage, hotelId } =
     params;
 
-  // ✅ Static Reviews Data
-  const reviews = [
-    {
-      id: "1",
-      name: "John Doe",
-      rating: "⭐⭐⭐⭐⭐",
-      comment: "Amazing guide! Very professional and knowledgeable.",
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      rating: "⭐⭐⭐⭐",
-      comment: "Had a great time exploring with this guide!",
-    },
-    {
-      id: "3",
-      name: "Michael Lee",
-      rating: "⭐⭐⭐⭐⭐",
-      comment: "Very friendly and accommodating!",
-    },
-  ];
-
+  // Remove static reviews data
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -121,7 +117,12 @@ const Booking = () => {
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [userRating, setUserRating] = useState<number>(0);
   const [userReview, setUserReview] = useState<string>("");
-  const [allReviews, setAllReviews] = useState(reviews);
+  const [allReviews, setAllReviews] = useState<Rating[]>([]);
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [averageRating, setAverageRating] = useState<number>(0);
+  const [totalRatings, setTotalRatings] = useState<number>(0);
 
   // Add new state for guide details
   const [guideDetails, setGuideDetails] = useState<any>(null);
@@ -197,16 +198,23 @@ const Booking = () => {
       }
 
       console.log("Fetching guide details for ID:", guideId);
-      const response = await axios.get(`${API_BASE_URL}/guides/profile/${guideId}`, {
+      const response = await axios.get(`${API_BASE_URL}/guides/details`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       console.log("Guide details response:", response.data);
 
-      if (response.data && response.data.guide) {
-        setGuideDetails(response.data.guide);
+      if (response.data && response.data.guides) {
+        // Find the guide with matching ID
+        const guide = response.data.guides.find((g: any) => g.id === parseInt(guideId));
+        if (guide) {
+          setGuideDetails(guide);
+        } else {
+          console.log("Guide not found in response");
+          setGuideDetails(null);
+        }
       } else {
-        console.log("No guide data in response");
+        console.log("No guides data in response");
         setGuideDetails(null);
       }
     } catch (error: any) {
@@ -227,8 +235,52 @@ const Booking = () => {
   useEffect(() => {
     if (guideId) {
       fetchGuideDetails();
+      fetchRatings("guide", guideId);
+    } else if (hotelId) {
+      fetchRatings("hotel", hotelId);
     }
-  }, [guideId]);
+  }, [guideId, hotelId]);
+
+  // Add function to fetch ratings
+  const fetchRatings = async (type: string, id: string) => {
+    try {
+      setLoadingReviews(true);
+      const token = await AsyncStorage.getItem("token");
+      
+      if (!token) {
+        console.error("Authentication failed. Please log in again.");
+        return;
+      }
+
+      console.log(`Fetching ${type} ratings for ID:`, id);
+      const response = await axios.get(`${API_BASE_URL}/rate/${type}/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log(`${type} ratings response:`, response.data);
+
+      if (response.data && response.data.success) {
+        setAllReviews(response.data.ratings || []);
+        setAverageRating(response.data.averageRating || 0);
+        setTotalRatings(response.data.totalRatings || 0);
+      } else {
+        console.log(`No ${type} ratings data in response`);
+        setAllReviews([]);
+        setAverageRating(0);
+        setTotalRatings(0);
+      }
+    } catch (error: any) {
+      console.error(`Error fetching ${type} ratings:`, error);
+      if (error.response) {
+        console.error("Error response:", error.response.data);
+      }
+      setAllReviews([]);
+      setAverageRating(0);
+      setTotalRatings(0);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
 
   const handleViewBooking = (booking: Booking, type: string) => {
     setSelectedBooking(booking);
@@ -608,6 +660,80 @@ const Booking = () => {
     }
   };
 
+  // Function to handle review submission
+  const handleSubmitReview = async () => {
+    if (userRating === 0) {
+      Alert.alert("Error", "Please select a rating");
+      return;
+    }
+    
+    if (!userReview.trim()) {
+      Alert.alert("Error", "Please enter a review");
+      return;
+    }
+    
+    try {
+      setSubmittingReview(true);
+      const token = await AsyncStorage.getItem("token");
+      
+      if (!token) {
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        return;
+      }
+      
+      // Determine if we're rating a guide or hotel
+      const ratingData = {
+        rating: userRating,
+        review: userReview.trim(),
+      };
+      
+      // Add either guideId or hotelId to the request
+      if (guideId) {
+        ratingData.guideId = guideId;
+      } else if (hotelId) {
+        ratingData.hotelId = hotelId;
+      } else {
+        Alert.alert("Error", "No guide or hotel ID found");
+        return;
+      }
+      
+      // Submit the rating to the backend
+      const response = await axios.post(
+        `${API_BASE_URL}/rate/createRating`,
+        ratingData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      
+      if (response.data && response.data.success) {
+        // Refresh the ratings after successful submission
+        if (guideId) {
+          fetchRatings("guide", guideId);
+        } else if (hotelId) {
+          fetchRatings("hotel", hotelId);
+        }
+        
+        // Reset form and close modal
+        setUserRating(0);
+        setUserReview("");
+        setReviewModalVisible(false);
+        
+        Alert.alert("Success", "Your review has been submitted successfully!");
+      } else {
+        Alert.alert("Error", "Failed to submit review. Please try again later.");
+      }
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      Alert.alert("Error", "Failed to submit review. Please try again later.");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   return (
     <View className="flex-1 bg-white p-4">
       {/* Header */}
@@ -815,120 +941,118 @@ const Booking = () => {
 
         {/* About Section */}
         {selectedTab === "About" && (
-          <View className="mt-4 p-3 gap-5">
+          <View className="mt-4 p-4 bg-white rounded-lg shadow-sm">
             {loadingGuideDetails ? (
-              <View className="items-center justify-center py-4">
+              <View className="items-center justify-center py-8">
                 <ActivityIndicator size="large" color="#3B82F6" />
-                <Text className="mt-2 text-gray-600">Loading guide details...</Text>
+                <Text className="mt-3 text-gray-600 font-medium">Loading guide details...</Text>
               </View>
             ) : guideDetails ? (
-              <View className="space-y-4">
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Name:</Text>
-                  <Text className="text-gray-600">{guideDetails.name || guideName}</Text>
+              <View className="space-y-5 gap-4">
+                <View className="bg-blue-50 p-4 rounded-lg">
+                  <Text className="text-lg font-bold text-blue-800 mb-2">Guide Information</Text>
+                  <View className="space-y-3">
+                    <View className="flex-row justify-between border-b border-blue-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Name:</Text>
+                      <Text className="text-gray-800">{guideDetails.name || guideName}</Text>
+                    </View>
+                    <View className="flex-row justify-between border-b border-blue-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Specialization:</Text>
+                      <Text className="text-gray-800">{guideDetails.specialization || guideSpecialization}</Text>
+                    </View>
+                    <View className="flex-row justify-between border-b border-blue-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Location:</Text>
+                      <Text className="text-gray-800">{guideDetails.location || "Not specified"}</Text>
+                    </View>
+                  </View>
                 </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Specialization:</Text>
-                  <Text className="text-gray-600">{guideDetails.specialization || guideSpecialization}</Text>
+                
+                <View className="bg-green-50 p-4 rounded-lg">
+                  <Text className="text-lg font-bold text-green-800 mb-2">Contact Details</Text>
+                  <View className="space-y-3">
+                    <View className="flex-row justify-between border-b border-green-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Phone:</Text>
+                      <Text className="text-gray-800">{guideDetails.phoneNumber || "Not specified"}</Text>
+                    </View>
+                    <View className="flex-row justify-between border-b border-green-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Email:</Text>
+                      <Text className="text-gray-800">{guideDetails.email || "Not specified"}</Text>
+                    </View>
+                    <View className="flex-row justify-between border-b border-green-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Charge per Day:</Text>
+                      <Text className="text-gray-800 font-bold">{guideDetails.charge ? `Rs. ${guideDetails.charge}` : "Not specified"}</Text>
+                    </View>
+                  </View>
                 </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Location:</Text>
-                  <Text className="text-gray-600">{guideDetails.location || "Not specified"}</Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Contact:</Text>
-                  <Text className="text-gray-600">{guideDetails.phoneNumber || "Not specified"}</Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Email:</Text>
-                  <Text className="text-gray-600">{guideDetails.email || "Not specified"}</Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Charge per Day:</Text>
-                  <Text className="text-gray-600">{guideDetails.charge ? `Rs. ${guideDetails.charge}` : "Not specified"}</Text>
-                </View>
+                
+                {guideDetails.about && (
+                  <View className="bg-purple-50 p-4 rounded-lg">
+                    <Text className="text-lg font-bold text-purple-800 mb-2">About</Text>
+                    <Text className="text-gray-700 leading-5">{guideDetails.about}</Text>
+                  </View>
+                )}
               </View>
             ) : (
-              <View className="items-center justify-center py-4">
-                <Text className="text-gray-600">No guide details available</Text>
+              <View className="items-center justify-center py-8 bg-gray-50 rounded-lg">
+                <Ionicons name="information-circle-outline" size={40} color="#6B7280" />
+                <Text className="mt-3 text-gray-600 font-medium">No guide details available</Text>
               </View>
             )}
           </View>
         )}
 
         {selectedTab === "Reviews" && (
-          <View className="mt-4 p-3 space-y-4">
-            {/* Existing Reviews */}
-            <FlatList
-              data={allReviews}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View className="bg-gray-100 p-3 rounded-lg">
-                  <Text className="font-semibold">{item.name}</Text>
-                  <Text className="text-yellow-500">{item.rating}</Text>
-                  <Text className="text-gray-600">{item.comment}</Text>
-                </View>
-              )}
-            />
-
-            {/* Divider */}
-            <View className="border-t border-gray-300 pt-4" />
-
-            {/* New Review Section */}
-            <Text className="text-lg font-bold">Write a Review</Text>
-
-            {/* Star Rating */}
-            <View className="flex-row mb-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity
-                  key={star}
-                  onPress={() => setUserRating(star)}
-                >
-                  <Ionicons
-                    name={star <= userRating ? "star" : "star-outline"}
-                    size={28}
-                    color="#facc15"
-                  />
-                </TouchableOpacity>
-              ))}
+          <View className="mt-4 p-3">
+            <View className="flex-row justify-between items-center mb-4">
+              <View>
+                <Text className="text-lg font-bold text-gray-800">Reviews</Text>
+                {totalRatings > 0 && (
+                  <View className="flex-row items-center mt-1">
+                    <Text className="text-yellow-500 mr-1">
+                      {"⭐".repeat(Math.round(averageRating))}
+                    </Text>
+                    <Text className="text-gray-600">
+                      ({averageRating.toFixed(1)} • {totalRatings} reviews)
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity 
+                className="bg-blue-500 px-4 py-2 rounded-full"
+                onPress={() => setReviewModalVisible(true)}
+              >
+                <Text className="text-white font-medium">Write a Review</Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Review Input */}
-            <View className="border border-gray-300 rounded-md p-2">
-              <TextInput
-                multiline
-                numberOfLines={4}
-                placeholder="Write your experience here..."
-                value={userReview}
-                onChangeText={setUserReview}
-                className="text-base text-gray-700"
+            
+            {loadingReviews ? (
+              <View className="items-center justify-center py-8">
+                <ActivityIndicator size="large" color="#3B82F6" />
+                <Text className="mt-3 text-gray-600 font-medium">Loading reviews...</Text>
+              </View>
+            ) : allReviews.length > 0 ? (
+              <FlatList
+                data={allReviews}
+                keyExtractor={(item) => item.id.toString()}
+                renderItem={({ item }) => (
+                  <View className="bg-white p-4 rounded-lg mb-3 shadow-sm">
+                    <View className="flex-row justify-between items-center mb-2">
+                      <Text className="font-semibold text-gray-800">{item.userName}</Text>
+                      <Text className="text-yellow-500">{"⭐".repeat(item.rating)}</Text>
+                    </View>
+                    <Text className="text-gray-600">{item.review}</Text>
+                    <Text className="text-gray-400 text-xs mt-2">
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </Text>
+                  </View>
+                )}
               />
-            </View>
-
-            {/* Submit Review */}
-            <TouchableOpacity
-              className="bg-blue-500 p-3 rounded-md items-center mt-2"
-              onPress={() => {
-                if (!userRating || !userReview.trim()) {
-                  Alert.alert("Error", "Please add both rating and comment.");
-                  return;
-                }
-
-                const newReview = {
-                  id: (allReviews.length + 1).toString(),
-                  name: "You",
-                  rating: "⭐".repeat(userRating),
-                  comment: userReview.trim(),
-                };
-
-                setAllReviews([newReview, ...allReviews]);
-                setUserRating(0);
-                setUserReview("");
-                Alert.alert("Thank you!", "Your review has been submitted.");
-              }}
-            >
-              <Text className="text-white font-semibold">Submit Review</Text>
-            </TouchableOpacity>
+            ) : (
+              <View className="items-center justify-center py-8 bg-gray-50 rounded-lg">
+                <Ionicons name="star-outline" size={40} color="#6B7280" />
+                <Text className="mt-3 text-gray-600 font-medium">No reviews yet</Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -1012,6 +1136,94 @@ const Booking = () => {
             </View>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Review Submission Bottom Sheet */}
+      <Modal
+        visible={reviewModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setReviewModalVisible(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={() => {
+            Keyboard.dismiss();
+            setReviewModalVisible(false);
+          }}>
+            <View className="flex-1 justify-end bg-blue-100 bg-opacity-70">
+              <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                <View className="bg-white rounded-t-3xl p-6">
+                  <View className="items-center mb-4">
+                    <View className="w-16 h-1 bg-gray-300 rounded-full mb-4" />
+                    <Text className="text-xl font-bold">Write a Review</Text>
+                  </View>
+                  
+                  <ScrollView className="max-h-[70vh]">
+                    <View className="mb-6">
+                      <Text className="text-gray-700 font-medium mb-2">Your Rating</Text>
+                      <View className="flex-row justify-center space-x-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <TouchableOpacity 
+                            key={star} 
+                            onPress={() => setUserRating(star)}
+                          >
+                            <Ionicons 
+                              name={star <= userRating ? "star" : "star-outline"} 
+                              size={32} 
+                              color="#FCD34D" 
+                            />
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                    
+                    <View className="mb-6">
+                      <Text className="text-gray-700 font-medium mb-2">Your Review</Text>
+                      <TextInput
+                        className="border border-gray-300 rounded-lg p-3 h-32 text-base"
+                        placeholder="Share your experience with this guide..."
+                        multiline
+                        textAlignVertical="top"
+                        value={userReview}
+                        onChangeText={setUserReview}
+                      />
+                    </View>
+                  </ScrollView>
+                  
+                  <View className="flex-row space-x-3 mt-2 gap-4">
+                    <TouchableOpacity 
+                      className="flex-1 bg-gray-200 p-3 rounded-lg items-center"
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setReviewModalVisible(false);
+                      }}
+                    >
+                      <Text className="text-gray-700 font-medium">Cancel</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      className="flex-1 bg-blue-500 p-3 rounded-lg items-center"
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        handleSubmitReview();
+                      }}
+                      disabled={submittingReview}
+                    >
+                      {submittingReview ? (
+                        <ActivityIndicator color="white" />
+                      ) : (
+                        <Text className="text-white font-medium">Submit</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
