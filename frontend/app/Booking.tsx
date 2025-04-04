@@ -89,6 +89,13 @@ interface Rating {
   updatedAt: string;
 }
 
+interface RatingData {
+  rating: number;
+  review: string;
+  guideId?: string;
+  hotelId?: string;
+}
+
 const Booking = () => {
   const router = useRouter();
   const params = useLocalSearchParams<RouteParams>();
@@ -128,11 +135,15 @@ const Booking = () => {
   const [guideDetails, setGuideDetails] = useState<any>(null);
   const [loadingGuideDetails, setLoadingGuideDetails] = useState(false);
 
+  const [pidx, setPidx] = useState<string>("");
+  const [bookingConfirmed, setBookingConfirmed] = useState<boolean>(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState<boolean>(false);
+
   useEffect(() => {
     const fetchUserId = async () => {
       const storedUserId = await AsyncStorage.getItem("userId");
       if (storedUserId) {
-        setUserId(storedUserId);
+      setUserId(storedUserId);
       }
     };
     fetchUserId();
@@ -208,6 +219,7 @@ const Booking = () => {
         // Find the guide with matching ID
         const guide = response.data.guides.find((g: any) => g.id === parseInt(guideId));
         if (guide) {
+          console.log("Found guide with charge:", guide.charge);
           setGuideDetails(guide);
         } else {
           console.log("Guide not found in response");
@@ -363,29 +375,56 @@ const Booking = () => {
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
-  const confirmBooking = async (pidx?: string) => {
+  const calculatePaymentAmount = (startDate: Date, endDate: Date, pricePerDay: number): number => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays * pricePerDay * 100; // Convert to paisa for Khalti
+  };
+
+  // Add function to check date availability
+  const checkDateAvailability = async (): Promise<boolean> => {
+    console.log("🟡 checkDateAvailability started");
+    if (!guideId) {
+      console.log("🟡 No guide ID provided, skipping availability check");
+      return true; // Skip check for hotel bookings
+    }
+    
     try {
-      setLoading(true);
-      setBookingError(null);
+      console.log("🟡 Setting isCheckingAvailability to true");
+      setIsCheckingAvailability(true);
+      
+      console.log("🟡 Getting token from AsyncStorage");
       const token = await AsyncStorage.getItem("token");
-
-      if (!token || !userId || !guideId) {
-        Alert.alert("Error", "Missing required information for booking.");
-        return;
+      
+      if (!token) {
+        console.log("🟡 No token found, showing error alert");
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        return false;
       }
-
-      if (!pidx) {
-        Alert.alert(
-          "Error",
-          "Payment verification failed: Missing payment ID."
-        );
-        return;
-      }
-
-      // Verify payment first before confirming booking
-      const verifyResponse = await axios.post(
-        `${API_BASE_URL}/khalti/verify-payment`,
-        { pidx },
+      
+      console.log("🟡 Checking availability for guide ID:", guideId);
+      console.log("🟡 Selected dates:", startDate.toISOString(), "to", endDate.toISOString());
+      
+      // Format dates for API request
+      const formattedStartDate = startDate.toISOString().split('T')[0];
+      const formattedEndDate = endDate.toISOString().split('T')[0];
+      
+      console.log("🟡 Formatted dates for API:", formattedStartDate, "to", formattedEndDate);
+      
+      const requestData = {
+        guideId,
+        startDate: formattedStartDate,
+        endDate: formattedEndDate
+      };
+      
+      console.log("🟡 Sending availability check request with data:", requestData);
+      console.log("🟡 API URL:", `${API_BASE_URL}/booking/check-availability`);
+      
+      const response = await axios.post(
+        `${API_BASE_URL}/booking/check-availability`,
+        requestData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -394,199 +433,122 @@ const Booking = () => {
         }
       );
 
-      if (verifyResponse.data.success) {
-        const bookingData = {
-          userId: parseInt(userId),
-          guideId: parseInt(guideId as string),
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          paymentStatus: true,
-          transactionId: verifyResponse.data.transaction.transaction_id,
-        };
-
-        try {
-          const response = await axios.post(
-            `${API_BASE_URL}/booking/create`,
-            bookingData,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
+      console.log("🟡 Availability check response:", response.data);
+      
+      if (response.data && response.data.available === false) {
+        const existingBooking = response.data.existingBooking;
+        console.log("Guide is not available. Existing booking:", existingBooking);
+        
+        const startDate = new Date(existingBooking.startDate).toLocaleDateString();
+        const endDate = new Date(existingBooking.endDate).toLocaleDateString();
+        
+        if (existingBooking.userId === parseInt(userId || "0")) {
           Alert.alert(
-            "Booking Confirmed ✅",
-            `Your booking with ${guideName} from ${startDate.toDateString()} to ${endDate.toDateString()} has been confirmed!`
+            "Already Booked", 
+            `You have already booked this guide from ${startDate} to ${endDate}.`
           );
-
-          setModalVisible(false);
-          router.push("/UserHome");
-        } catch (error: any) {
-          if (error.response?.data?.error) {
-            const errorData = error.response.data;
-            if (errorData.existingBooking) {
-              Alert.alert(
-                "Guide Not Available ❌",
-                `This guide is already booked from ${new Date(
-                  errorData.existingBooking.startDate
-                ).toDateString()} to ${new Date(
-                  errorData.existingBooking.endDate
-                ).toDateString()}. Please select different dates.`
-              );
-            } else {
-              Alert.alert("Booking Failed ❌", errorData.error);
-            }
-          } else {
-            Alert.alert(
-              "Booking Failed ❌",
-              "An error occurred while creating the booking."
-            );
-          }
+        } else {
+          Alert.alert(
+            "Guide Not Available", 
+            `This guide is already booked from ${startDate} to ${endDate}.`
+          );
         }
-      } else {
-        Alert.alert(
-          "Payment Verification Failed ❌",
-          verifyResponse.data.message
-        );
+        return false;
       }
-    } catch (error) {
-      console.error("Booking error:", error);
-      Alert.alert(
-        "Booking Failed ❌",
-        error instanceof Error
-          ? error.message
-          : "An error occurred while booking."
-      );
+      
+      console.log("Guide is available for the selected dates");
+      return true;
+    } catch (error: any) {
+      console.error("Availability check error:", error);
+      if (error.response) {
+        console.error("Error response data:", error.response.data);
+        console.error("Error response status:", error.response.status);
+      }
+      
+      if (error.response && error.response.status === 400 && error.response.data.error) {
+        Alert.alert("Error", error.response.data.error);
+      } else {
+        Alert.alert("Error", "Failed to check guide availability. Please try again.");
+      }
+      return false;
     } finally {
-      setLoading(false);
+      setIsCheckingAvailability(false);
     }
   };
 
-  // Add function for hotel booking
-  const confirmHotelBooking = async (pidx?: string) => {
+  const handleKhaltiPayment = async (): Promise<void> => {
+    console.log("🔵 handleKhaltiPayment started");
     try {
+      console.log("🔵 Setting loading state to true");
       setLoading(true);
-      setBookingError(null);
-      const token = await AsyncStorage.getItem("token");
-
-      if (!token || !userId || !hotelId) {
-        Alert.alert("Error", "Missing required information for booking.");
+      setBookingConfirmed(false);
+      
+      // Check if dates are available before proceeding
+      console.log("🔵 About to check date availability...");
+      console.log("🔵 Current guideId:", guideId);
+      console.log("🔵 Current startDate:", startDate);
+      console.log("🔵 Current endDate:", endDate);
+      
+      const isAvailable = await checkDateAvailability();
+      console.log("🔵 Availability check result:", isAvailable);
+      
+      if (!isAvailable) {
+        console.log("🔵 Guide is not available, stopping payment process");
+        setLoading(false);
         return;
       }
-
-      if (!pidx) {
-        Alert.alert(
-          "Error",
-          "Payment verification failed: Missing payment ID."
-        );
-        return;
-      }
-
-      // Verify payment first
-      const verifyResponse = await axios.post(
-        `${API_BASE_URL}/khalti/verify-payment`,
-        { pidx },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (verifyResponse.data.success) {
-        const hotelBookingData: HotelBookingData = {
-          hotelId: hotelId as string,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          numberOfRooms,
-          paymentStatus: true,
-        };
-
-        try {
-          const response = await axios.post(
-            `${API_BASE_URL}/booking/hotel/create`,
-            hotelBookingData,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          Alert.alert(
-            "Booking Confirmed ✅",
-            `Your hotel booking for ${numberOfRooms} room(s) from ${startDate.toDateString()} to ${endDate.toDateString()} has been confirmed!`
-          );
-
-          setModalVisible(false);
-          router.push("/UserHome");
-        } catch (error: any) {
-          if (error.response?.data?.error) {
-            const errorData = error.response.data;
-            if (errorData.availableRooms !== undefined) {
-              Alert.alert(
-                "Rooms Not Available ❌",
-                `Only ${errorData.availableRooms} room(s) available for the selected dates. Please adjust your booking.`
-              );
-            } else {
-              Alert.alert("Booking Failed ❌", errorData.error);
-            }
-          } else {
-            Alert.alert(
-              "Booking Failed ❌",
-              "An error occurred while creating the booking."
-            );
-          }
-        }
-      } else {
-        Alert.alert(
-          "Payment Verification Failed ❌",
-          verifyResponse.data.message
-        );
-      }
-    } catch (error) {
-      console.error("Hotel booking error:", error);
-      Alert.alert(
-        "Booking Failed ❌",
-        error instanceof Error
-          ? error.message
-          : "An error occurred while booking."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ Function to handle Khalti Payment
-  const handleKhaltiPayment = async () => {
-    try {
-      setLoading(true);
+      
+      console.log("🔵 Guide is available, proceeding with payment");
+      
       const token = await AsyncStorage.getItem("token");
+      console.log("🔵 Token retrieved:", token ? "Token exists" : "No token found");
 
-      if (!token || !userId) {
-        Alert.alert("Error", "User authentication failed. Please log in.");
+      if (!token) {
+        console.log("🔵 No token found, showing error alert");
+        Alert.alert("Error", "Authentication failed. Please log in again.");
         setLoading(false);
         return;
       }
 
-      const amount = 1000 * 100;
+      // Calculate payment amount based on number of days and guide's charge per day
+      let pricePerDay = 1000; // Default price
+      if (guideId && guideDetails && guideDetails.charge) {
+        pricePerDay = guideDetails.charge;
+        console.log("Using guide's charge per day:", pricePerDay);
+      } else if (hotelId) {
+        pricePerDay = 2000; // Default hotel price
+        console.log("Using default hotel price per day:", pricePerDay);
+      } else {
+        console.log("Using default guide price per day:", pricePerDay);
+        console.log("Guide details:", guideDetails);
+      }
+      
+      const amount = calculatePaymentAmount(startDate, endDate, pricePerDay);
+      console.log("Calculated payment amount:", amount, "paisa (", amount/100, "rupees)");
+      
+      // Create a unique order ID
+      const orderId = `ORDER-${Date.now()}`;
+      
+      // Create a descriptive order name
+      const orderName = guideId 
+        ? `Guide Booking - ${guideName} (${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()})`
+        : `Hotel Booking - ${hotelId} (${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()})`;
+
+      console.log("Initiating Khalti payment with:", {
+        amount,
+        orderId,
+        orderName
+      });
 
       const response = await axios.post(
-        `${API_BASE_URL}/khalti/initiate-payment`,
+        `${API_BASE_URL}/payment/initiate-payment`,
         {
           amount,
-          orderId: `order_${new Date().getTime()}_${Math.floor(
-            Math.random() * 1000
-          )}`,
-          orderName: `Guide Booking - ${guideName}`,
+          orderId,
+          orderName,
           customerInfo: {
-            name: "User",
+            name: userId,
             email: "user@example.com",
-            phone: "9800000001",
           },
         },
         {
@@ -601,10 +563,12 @@ const Booking = () => {
 
       if (response.data && response.data.payment_url) {
         setPaymentUrl(response.data.payment_url);
+        setPidx(response.data.pidx); // Store pidx for verification
         setModalVisible(false);
         setPaymentModalVisible(true);
       } else {
         Alert.alert("Error", "Failed to initiate Khalti payment.");
+        setLoading(false);
       }
     } catch (error) {
       const khaltiError = error as KhaltiError;
@@ -613,6 +577,202 @@ const Booking = () => {
         khaltiError.response?.data || khaltiError.message
       );
       Alert.alert("Payment Error ❌", "Could not start Khalti payment.");
+      setLoading(false);
+    }
+  };
+
+  const confirmBooking = async (): Promise<void> => {
+    try {
+      // If booking is already confirmed, don't proceed
+      if (bookingConfirmed) {
+        console.log("Booking already confirmed, skipping duplicate confirmation");
+        return;
+      }
+      
+      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+
+      if (!token) {
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        return;
+      }
+
+      if (!pidx) {
+        Alert.alert("Error", "Payment ID not found. Please try the payment again.");
+        return;
+      }
+
+      // First verify the payment
+      const verifyResponse = await axios.post(
+        `${API_BASE_URL}/payment/verify-payment`,
+        { pidx },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Payment verification response:", verifyResponse.data);
+
+      if (!verifyResponse.data.success) {
+        Alert.alert("Error", "Payment verification failed. Please try again.");
+        return;
+      }
+
+      // If payment is verified, create the booking
+      const bookingData = {
+        guideId,
+        startDate,
+        endDate,
+        paymentStatus: true,
+        transactionId: verifyResponse.data.transaction?.transaction_id || "",
+      };
+
+      console.log("Creating booking with data:", bookingData);
+
+      const response = await axios.post(
+        `${API_BASE_URL}/booking/create`,
+        bookingData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Booking creation response:", response.data);
+
+      if (response.data.success) {
+        Alert.alert("Success", `Payment successful and ${guideName} is booked!`);
+        // Don't navigate back, stay on the current page
+        // router.back();
+      } else {
+        Alert.alert("Error", "Failed to confirm booking.");
+      }
+    } catch (error: any) {
+      console.error("Booking Error:", error);
+      
+      // Check if the error is due to overlapping bookings
+      if (error.response && error.response.status === 400 && error.response.data.error) {
+        const errorMessage = error.response.data.error;
+        const existingBooking = error.response.data.existingBooking;
+        
+        if (existingBooking) {
+          const startDate = new Date(existingBooking.startDate).toLocaleDateString();
+          const endDate = new Date(existingBooking.endDate).toLocaleDateString();
+          
+          Alert.alert(
+            "Booking Unavailable", 
+            `${errorMessage}\n\nBooked from ${startDate} to ${endDate}.`
+          );
+        } else {
+          Alert.alert("Error", errorMessage);
+        }
+      } else {
+        Alert.alert("Error", "Failed to confirm booking. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmHotelBooking = async (): Promise<void> => {
+    try {
+      // If booking is already confirmed, don't proceed
+      if (bookingConfirmed) {
+        console.log("Hotel booking already confirmed, skipping duplicate confirmation");
+        return;
+      }
+      
+      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+
+      if (!token) {
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        return;
+      }
+
+      if (!pidx) {
+        Alert.alert("Error", "Payment ID not found. Please try the payment again.");
+        return;
+      }
+
+      // First verify the payment
+      const verifyResponse = await axios.post(
+        `${API_BASE_URL}/payment/verify-payment`,
+        { pidx },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Payment verification response:", verifyResponse.data);
+
+      if (!verifyResponse.data.success) {
+        Alert.alert("Error", "Payment verification failed. Please try again.");
+        return;
+      }
+
+      // If payment is verified, create the hotel booking
+      const bookingData = {
+        hotelId,
+        startDate,
+        endDate,
+        numberOfRooms,
+        paymentStatus: true,
+        transactionId: verifyResponse.data.transaction?.transaction_id || "",
+      };
+
+      console.log("Creating hotel booking with data:", bookingData);
+
+      const response = await axios.post(
+        `${API_BASE_URL}/booking/hotel/create`,
+        bookingData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Hotel booking creation response:", response.data);
+
+      if (response.data.success) {
+        Alert.alert("Success", "Hotel booking confirmed successfully!");
+        // Don't navigate back, stay on the current page
+        // router.back();
+      } else {
+        Alert.alert("Error", "Failed to confirm hotel booking.");
+      }
+    } catch (error: any) {
+      console.error("Hotel Booking Error:", error);
+      
+      // Check if the error is due to overlapping bookings
+      if (error.response && error.response.status === 400 && error.response.data.error) {
+        const errorMessage = error.response.data.error;
+        const existingBooking = error.response.data.existingBooking;
+        
+        if (existingBooking) {
+          const startDate = new Date(existingBooking.startDate).toLocaleDateString();
+          const endDate = new Date(existingBooking.endDate).toLocaleDateString();
+          
+          Alert.alert(
+            "Booking Unavailable", 
+            `${errorMessage}\n\nBooked from ${startDate} to ${endDate}.`
+          );
+        } else {
+          Alert.alert("Error", errorMessage);
+        }
+      } else {
+        Alert.alert("Error", "Failed to confirm hotel booking. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -682,7 +842,7 @@ const Booking = () => {
       }
       
       // Determine if we're rating a guide or hotel
-      const ratingData = {
+      const ratingData: RatingData = {
         rating: userRating,
         review: userReview.trim(),
       };
@@ -874,11 +1034,13 @@ const Booking = () => {
 
                 {/* Khalti Payment Button */}
                 <TouchableOpacity
-                  disabled={loading}
-                  className="mt-6 bg-green-600 p-3 rounded-lg items-center"
+                  disabled={loading || isCheckingAvailability}
+                  className={`mt-6 p-3 rounded-lg items-center ${
+                    loading || isCheckingAvailability ? "bg-gray-400" : "bg-green-600"
+                  }`}
                   onPress={handleKhaltiPayment}
                 >
-                  {loading ? (
+                  {loading || isCheckingAvailability ? (
                     <ActivityIndicator color="white" />
                   ) : (
                     <Text className="text-white font-bold">
@@ -903,9 +1065,30 @@ const Booking = () => {
           source={{ uri: paymentUrl }}
           onNavigationStateChange={(navState) => {
             console.log("Navigating to:", navState.url);
-            if (navState.url.includes("payment-success")) {
-              setPaymentModalVisible(false);
-              confirmBooking(navState.url.split("pidx=")[1]); // Extract pidx from URL
+            
+            // Check if the URL contains the payment verification endpoint
+            if (navState.url.includes("/payment/verify-payment") || 
+                navState.url.includes("/khalti/verify-payment")) {
+              
+              // Extract pidx from URL if available
+              const pidxMatch = navState.url.match(/[?&]pidx=([^&]+)/);
+              if (pidxMatch && pidxMatch[1]) {
+                setPidx(pidxMatch[1]);
+              }
+              
+              // Extract status from URL if available
+              const statusMatch = navState.url.match(/[?&]status=([^&]+)/);
+              if (statusMatch && statusMatch[1] === "Completed" && !bookingConfirmed) {
+                setPaymentModalVisible(false);
+                setBookingConfirmed(true);
+                
+                // Call the appropriate confirmation function based on booking type
+                if (guideId) {
+                  confirmBooking();
+                } else if (hotelId) {
+                  confirmHotelBooking();
+                }
+              }
             }
           }}
         />
@@ -1011,11 +1194,11 @@ const Booking = () => {
                     <Text className="text-yellow-500 mr-1">
                       {"⭐".repeat(Math.round(averageRating))}
                     </Text>
-                    <Text className="text-gray-600">
+            <Text className="text-gray-600">
                       ({averageRating.toFixed(1)} • {totalRatings} reviews)
-                    </Text>
-                  </View>
-                )}
+            </Text>
+          </View>
+        )}
               </View>
               <TouchableOpacity 
                 className="bg-blue-500 px-4 py-2 rounded-full"
@@ -1031,10 +1214,10 @@ const Booking = () => {
                 <Text className="mt-3 text-gray-600 font-medium">Loading reviews...</Text>
               </View>
             ) : allReviews.length > 0 ? (
-              <FlatList
+          <FlatList
                 data={allReviews}
                 keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
+            renderItem={({ item }) => (
                   <View className="bg-white p-4 rounded-lg mb-3 shadow-sm">
                     <View className="flex-row justify-between items-center mb-2">
                       <Text className="font-semibold text-gray-800">{item.userName}</Text>
@@ -1044,16 +1227,16 @@ const Booking = () => {
                     <Text className="text-gray-400 text-xs mt-2">
                       {new Date(item.createdAt).toLocaleDateString()}
                     </Text>
-                  </View>
-                )}
-              />
+              </View>
+            )}
+          />
             ) : (
               <View className="items-center justify-center py-8 bg-gray-50 rounded-lg">
                 <Ionicons name="star-outline" size={40} color="#6B7280" />
                 <Text className="mt-3 text-gray-600 font-medium">No reviews yet</Text>
               </View>
-            )}
-          </View>
+        )}
+      </View>
         )}
       </View>
 
