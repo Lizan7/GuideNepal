@@ -2,7 +2,12 @@ const express = require("express");
 const { PrismaClient } = require("@prisma/client");
 const router = express.Router();
 const { authenticateUser } = require("../middlewares/authMiddleware");
-const { createUserBooking, getUserBookings, getGuideBookings } = require("../controllers/bookingController");
+const { 
+  createUserBooking, 
+  getUserBookings, 
+  getGuideBookings,
+  checkGuideAvailability
+} = require("../controllers/bookingController");
 const prisma = new PrismaClient();
 
 // Create a new booking
@@ -13,5 +18,8 @@ router.get("/user/:userId", authenticateUser(), getUserBookings);
 
 // Get all bookings for a guide
 router.get("/guide", authenticateUser(), getGuideBookings);
+
+// Check guide availability for specific dates
+router.post("/check-availability", authenticateUser(), checkGuideAvailability);
 
 module.exports = router;

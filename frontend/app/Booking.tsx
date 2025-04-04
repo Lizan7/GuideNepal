@@ -9,7 +9,11 @@ import {
   Modal,
   TouchableWithoutFeedback,
   FlatList,
-  TextInput
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -72,34 +76,33 @@ interface HotelBookingData {
   paymentStatus: boolean;
 }
 
+// Add interface for Rating
+interface Rating {
+  id: number;
+  userId: number;
+  userName: string;
+  rating: number;
+  review: string;
+  hotelId: number | null;
+  guideId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface RatingData {
+  rating: number;
+  review: string;
+  guideId?: string;
+  hotelId?: string;
+}
+
 const Booking = () => {
   const router = useRouter();
   const params = useLocalSearchParams<RouteParams>();
   const { guideId, guideName, guideSpecialization, guideImage, hotelId } =
     params;
 
-  // ✅ Static Reviews Data
-  const reviews = [
-    {
-      id: "1",
-      name: "John Doe",
-      rating: "⭐⭐⭐⭐⭐",
-      comment: "Amazing guide! Very professional and knowledgeable.",
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      rating: "⭐⭐⭐⭐",
-      comment: "Had a great time exploring with this guide!",
-    },
-    {
-      id: "3",
-      name: "Michael Lee",
-      rating: "⭐⭐⭐⭐⭐",
-      comment: "Very friendly and accommodating!",
-    },
-  ];
-
+  // Remove static reviews data
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -121,17 +124,26 @@ const Booking = () => {
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [userRating, setUserRating] = useState<number>(0);
   const [userReview, setUserReview] = useState<string>("");
-  const [allReviews, setAllReviews] = useState(reviews);
+  const [allReviews, setAllReviews] = useState<Rating[]>([]);
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [averageRating, setAverageRating] = useState<number>(0);
+  const [totalRatings, setTotalRatings] = useState<number>(0);
 
   // Add new state for guide details
   const [guideDetails, setGuideDetails] = useState<any>(null);
   const [loadingGuideDetails, setLoadingGuideDetails] = useState(false);
 
+  const [pidx, setPidx] = useState<string>("");
+  const [bookingConfirmed, setBookingConfirmed] = useState<boolean>(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState<boolean>(false);
+
   useEffect(() => {
     const fetchUserId = async () => {
       const storedUserId = await AsyncStorage.getItem("userId");
       if (storedUserId) {
-        setUserId(storedUserId);
+      setUserId(storedUserId);
       }
     };
     fetchUserId();
@@ -197,16 +209,24 @@ const Booking = () => {
       }
 
       console.log("Fetching guide details for ID:", guideId);
-      const response = await axios.get(`${API_BASE_URL}/guides/profile/${guideId}`, {
+      const response = await axios.get(`${API_BASE_URL}/guides/details`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       console.log("Guide details response:", response.data);
 
-      if (response.data && response.data.guide) {
-        setGuideDetails(response.data.guide);
+      if (response.data && response.data.guides) {
+        // Find the guide with matching ID
+        const guide = response.data.guides.find((g: any) => g.id === parseInt(guideId));
+        if (guide) {
+          console.log("Found guide with charge:", guide.charge);
+          setGuideDetails(guide);
+        } else {
+          console.log("Guide not found in response");
+          setGuideDetails(null);
+        }
       } else {
-        console.log("No guide data in response");
+        console.log("No guides data in response");
         setGuideDetails(null);
       }
     } catch (error: any) {
@@ -227,8 +247,52 @@ const Booking = () => {
   useEffect(() => {
     if (guideId) {
       fetchGuideDetails();
+      fetchRatings("guide", guideId);
+    } else if (hotelId) {
+      fetchRatings("hotel", hotelId);
     }
-  }, [guideId]);
+  }, [guideId, hotelId]);
+
+  // Add function to fetch ratings
+  const fetchRatings = async (type: string, id: string) => {
+    try {
+      setLoadingReviews(true);
+      const token = await AsyncStorage.getItem("token");
+      
+      if (!token) {
+        console.error("Authentication failed. Please log in again.");
+        return;
+      }
+
+      console.log(`Fetching ${type} ratings for ID:`, id);
+      const response = await axios.get(`${API_BASE_URL}/rate/${type}/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log(`${type} ratings response:`, response.data);
+
+      if (response.data && response.data.success) {
+        setAllReviews(response.data.ratings || []);
+        setAverageRating(response.data.averageRating || 0);
+        setTotalRatings(response.data.totalRatings || 0);
+      } else {
+        console.log(`No ${type} ratings data in response`);
+        setAllReviews([]);
+        setAverageRating(0);
+        setTotalRatings(0);
+      }
+    } catch (error: any) {
+      console.error(`Error fetching ${type} ratings:`, error);
+      if (error.response) {
+        console.error("Error response:", error.response.data);
+      }
+      setAllReviews([]);
+      setAverageRating(0);
+      setTotalRatings(0);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
 
   const handleViewBooking = (booking: Booking, type: string) => {
     setSelectedBooking(booking);
@@ -311,29 +375,56 @@ const Booking = () => {
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
-  const confirmBooking = async (pidx?: string) => {
+  const calculatePaymentAmount = (startDate: Date, endDate: Date, pricePerDay: number): number => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays * pricePerDay * 100; // Convert to paisa for Khalti
+  };
+
+  // Add function to check date availability
+  const checkDateAvailability = async (): Promise<boolean> => {
+    console.log("🟡 checkDateAvailability started");
+    if (!guideId) {
+      console.log("🟡 No guide ID provided, skipping availability check");
+      return true; // Skip check for hotel bookings
+    }
+    
     try {
-      setLoading(true);
-      setBookingError(null);
+      console.log("🟡 Setting isCheckingAvailability to true");
+      setIsCheckingAvailability(true);
+      
+      console.log("🟡 Getting token from AsyncStorage");
       const token = await AsyncStorage.getItem("token");
-
-      if (!token || !userId || !guideId) {
-        Alert.alert("Error", "Missing required information for booking.");
-        return;
+      
+      if (!token) {
+        console.log("🟡 No token found, showing error alert");
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        return false;
       }
-
-      if (!pidx) {
-        Alert.alert(
-          "Error",
-          "Payment verification failed: Missing payment ID."
-        );
-        return;
-      }
-
-      // Verify payment first before confirming booking
-      const verifyResponse = await axios.post(
-        `${API_BASE_URL}/khalti/verify-payment`,
-        { pidx },
+      
+      console.log("🟡 Checking availability for guide ID:", guideId);
+      console.log("🟡 Selected dates:", startDate.toISOString(), "to", endDate.toISOString());
+      
+      // Format dates for API request
+      const formattedStartDate = startDate.toISOString().split('T')[0];
+      const formattedEndDate = endDate.toISOString().split('T')[0];
+      
+      console.log("🟡 Formatted dates for API:", formattedStartDate, "to", formattedEndDate);
+      
+      const requestData = {
+        guideId,
+        startDate: formattedStartDate,
+        endDate: formattedEndDate
+      };
+      
+      console.log("🟡 Sending availability check request with data:", requestData);
+      console.log("🟡 API URL:", `${API_BASE_URL}/booking/check-availability`);
+      
+      const response = await axios.post(
+        `${API_BASE_URL}/booking/check-availability`,
+        requestData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -342,199 +433,122 @@ const Booking = () => {
         }
       );
 
-      if (verifyResponse.data.success) {
-        const bookingData = {
-          userId: parseInt(userId),
-          guideId: parseInt(guideId as string),
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          paymentStatus: true,
-          transactionId: verifyResponse.data.transaction.transaction_id,
-        };
-
-        try {
-          const response = await axios.post(
-            `${API_BASE_URL}/booking/create`,
-            bookingData,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
+      console.log("🟡 Availability check response:", response.data);
+      
+      if (response.data && response.data.available === false) {
+        const existingBooking = response.data.existingBooking;
+        console.log("Guide is not available. Existing booking:", existingBooking);
+        
+        const startDate = new Date(existingBooking.startDate).toLocaleDateString();
+        const endDate = new Date(existingBooking.endDate).toLocaleDateString();
+        
+        if (existingBooking.userId === parseInt(userId || "0")) {
           Alert.alert(
-            "Booking Confirmed ✅",
-            `Your booking with ${guideName} from ${startDate.toDateString()} to ${endDate.toDateString()} has been confirmed!`
+            "Already Booked", 
+            `You have already booked this guide from ${startDate} to ${endDate}.`
           );
-
-          setModalVisible(false);
-          router.push("/UserHome");
-        } catch (error: any) {
-          if (error.response?.data?.error) {
-            const errorData = error.response.data;
-            if (errorData.existingBooking) {
-              Alert.alert(
-                "Guide Not Available ❌",
-                `This guide is already booked from ${new Date(
-                  errorData.existingBooking.startDate
-                ).toDateString()} to ${new Date(
-                  errorData.existingBooking.endDate
-                ).toDateString()}. Please select different dates.`
-              );
-            } else {
-              Alert.alert("Booking Failed ❌", errorData.error);
-            }
-          } else {
-            Alert.alert(
-              "Booking Failed ❌",
-              "An error occurred while creating the booking."
-            );
-          }
+        } else {
+          Alert.alert(
+            "Guide Not Available", 
+            `This guide is already booked from ${startDate} to ${endDate}.`
+          );
         }
-      } else {
-        Alert.alert(
-          "Payment Verification Failed ❌",
-          verifyResponse.data.message
-        );
+        return false;
       }
-    } catch (error) {
-      console.error("Booking error:", error);
-      Alert.alert(
-        "Booking Failed ❌",
-        error instanceof Error
-          ? error.message
-          : "An error occurred while booking."
-      );
+      
+      console.log("Guide is available for the selected dates");
+      return true;
+    } catch (error: any) {
+      console.error("Availability check error:", error);
+      if (error.response) {
+        console.error("Error response data:", error.response.data);
+        console.error("Error response status:", error.response.status);
+      }
+      
+      if (error.response && error.response.status === 400 && error.response.data.error) {
+        Alert.alert("Error", error.response.data.error);
+      } else {
+        Alert.alert("Error", "Failed to check guide availability. Please try again.");
+      }
+      return false;
     } finally {
-      setLoading(false);
+      setIsCheckingAvailability(false);
     }
   };
 
-  // Add function for hotel booking
-  const confirmHotelBooking = async (pidx?: string) => {
+  const handleKhaltiPayment = async (): Promise<void> => {
+    console.log("🔵 handleKhaltiPayment started");
     try {
+      console.log("🔵 Setting loading state to true");
       setLoading(true);
-      setBookingError(null);
-      const token = await AsyncStorage.getItem("token");
-
-      if (!token || !userId || !hotelId) {
-        Alert.alert("Error", "Missing required information for booking.");
+      setBookingConfirmed(false);
+      
+      // Check if dates are available before proceeding
+      console.log("🔵 About to check date availability...");
+      console.log("🔵 Current guideId:", guideId);
+      console.log("🔵 Current startDate:", startDate);
+      console.log("🔵 Current endDate:", endDate);
+      
+      const isAvailable = await checkDateAvailability();
+      console.log("🔵 Availability check result:", isAvailable);
+      
+      if (!isAvailable) {
+        console.log("🔵 Guide is not available, stopping payment process");
+        setLoading(false);
         return;
       }
-
-      if (!pidx) {
-        Alert.alert(
-          "Error",
-          "Payment verification failed: Missing payment ID."
-        );
-        return;
-      }
-
-      // Verify payment first
-      const verifyResponse = await axios.post(
-        `${API_BASE_URL}/khalti/verify-payment`,
-        { pidx },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (verifyResponse.data.success) {
-        const hotelBookingData: HotelBookingData = {
-          hotelId: hotelId as string,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
-          numberOfRooms,
-          paymentStatus: true,
-        };
-
-        try {
-          const response = await axios.post(
-            `${API_BASE_URL}/booking/hotel/create`,
-            hotelBookingData,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          Alert.alert(
-            "Booking Confirmed ✅",
-            `Your hotel booking for ${numberOfRooms} room(s) from ${startDate.toDateString()} to ${endDate.toDateString()} has been confirmed!`
-          );
-
-          setModalVisible(false);
-          router.push("/UserHome");
-        } catch (error: any) {
-          if (error.response?.data?.error) {
-            const errorData = error.response.data;
-            if (errorData.availableRooms !== undefined) {
-              Alert.alert(
-                "Rooms Not Available ❌",
-                `Only ${errorData.availableRooms} room(s) available for the selected dates. Please adjust your booking.`
-              );
-            } else {
-              Alert.alert("Booking Failed ❌", errorData.error);
-            }
-          } else {
-            Alert.alert(
-              "Booking Failed ❌",
-              "An error occurred while creating the booking."
-            );
-          }
-        }
-      } else {
-        Alert.alert(
-          "Payment Verification Failed ❌",
-          verifyResponse.data.message
-        );
-      }
-    } catch (error) {
-      console.error("Hotel booking error:", error);
-      Alert.alert(
-        "Booking Failed ❌",
-        error instanceof Error
-          ? error.message
-          : "An error occurred while booking."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ✅ Function to handle Khalti Payment
-  const handleKhaltiPayment = async () => {
-    try {
-      setLoading(true);
+      
+      console.log("🔵 Guide is available, proceeding with payment");
+      
       const token = await AsyncStorage.getItem("token");
+      console.log("🔵 Token retrieved:", token ? "Token exists" : "No token found");
 
-      if (!token || !userId) {
-        Alert.alert("Error", "User authentication failed. Please log in.");
+      if (!token) {
+        console.log("🔵 No token found, showing error alert");
+        Alert.alert("Error", "Authentication failed. Please log in again.");
         setLoading(false);
         return;
       }
 
-      const amount = 1000 * 100;
+      // Calculate payment amount based on number of days and guide's charge per day
+      let pricePerDay = 1000; // Default price
+      if (guideId && guideDetails && guideDetails.charge) {
+        pricePerDay = guideDetails.charge;
+        console.log("Using guide's charge per day:", pricePerDay);
+      } else if (hotelId) {
+        pricePerDay = 2000; // Default hotel price
+        console.log("Using default hotel price per day:", pricePerDay);
+      } else {
+        console.log("Using default guide price per day:", pricePerDay);
+        console.log("Guide details:", guideDetails);
+      }
+      
+      const amount = calculatePaymentAmount(startDate, endDate, pricePerDay);
+      console.log("Calculated payment amount:", amount, "paisa (", amount/100, "rupees)");
+      
+      // Create a unique order ID
+      const orderId = `ORDER-${Date.now()}`;
+      
+      // Create a descriptive order name
+      const orderName = guideId 
+        ? `Guide Booking - ${guideName} (${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()})`
+        : `Hotel Booking - ${hotelId} (${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()})`;
+
+      console.log("Initiating Khalti payment with:", {
+        amount,
+        orderId,
+        orderName
+      });
 
       const response = await axios.post(
-        `${API_BASE_URL}/khalti/initiate-payment`,
+        `${API_BASE_URL}/payment/initiate-payment`,
         {
           amount,
-          orderId: `order_${new Date().getTime()}_${Math.floor(
-            Math.random() * 1000
-          )}`,
-          orderName: `Guide Booking - ${guideName}`,
+          orderId,
+          orderName,
           customerInfo: {
-            name: "User",
+            name: userId,
             email: "user@example.com",
-            phone: "9800000001",
           },
         },
         {
@@ -549,10 +563,12 @@ const Booking = () => {
 
       if (response.data && response.data.payment_url) {
         setPaymentUrl(response.data.payment_url);
+        setPidx(response.data.pidx); // Store pidx for verification
         setModalVisible(false);
         setPaymentModalVisible(true);
       } else {
         Alert.alert("Error", "Failed to initiate Khalti payment.");
+        setLoading(false);
       }
     } catch (error) {
       const khaltiError = error as KhaltiError;
@@ -561,6 +577,202 @@ const Booking = () => {
         khaltiError.response?.data || khaltiError.message
       );
       Alert.alert("Payment Error ❌", "Could not start Khalti payment.");
+      setLoading(false);
+    }
+  };
+
+  const confirmBooking = async (): Promise<void> => {
+    try {
+      // If booking is already confirmed, don't proceed
+      if (bookingConfirmed) {
+        console.log("Booking already confirmed, skipping duplicate confirmation");
+        return;
+      }
+      
+      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+
+      if (!token) {
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        return;
+      }
+
+      if (!pidx) {
+        Alert.alert("Error", "Payment ID not found. Please try the payment again.");
+        return;
+      }
+
+      // First verify the payment
+      const verifyResponse = await axios.post(
+        `${API_BASE_URL}/payment/verify-payment`,
+        { pidx },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Payment verification response:", verifyResponse.data);
+
+      if (!verifyResponse.data.success) {
+        Alert.alert("Error", "Payment verification failed. Please try again.");
+        return;
+      }
+
+      // If payment is verified, create the booking
+      const bookingData = {
+        guideId,
+        startDate,
+        endDate,
+        paymentStatus: true,
+        transactionId: verifyResponse.data.transaction?.transaction_id || "",
+      };
+
+      console.log("Creating booking with data:", bookingData);
+
+      const response = await axios.post(
+        `${API_BASE_URL}/booking/create`,
+        bookingData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Booking creation response:", response.data);
+
+      if (response.data.success) {
+        Alert.alert("Success", `Payment successful and ${guideName} is booked!`);
+        // Don't navigate back, stay on the current page
+        // router.back();
+      } else {
+        Alert.alert("Error", "Failed to confirm booking.");
+      }
+    } catch (error: any) {
+      console.error("Booking Error:", error);
+      
+      // Check if the error is due to overlapping bookings
+      if (error.response && error.response.status === 400 && error.response.data.error) {
+        const errorMessage = error.response.data.error;
+        const existingBooking = error.response.data.existingBooking;
+        
+        if (existingBooking) {
+          const startDate = new Date(existingBooking.startDate).toLocaleDateString();
+          const endDate = new Date(existingBooking.endDate).toLocaleDateString();
+          
+          Alert.alert(
+            "Booking Unavailable", 
+            `${errorMessage}\n\nBooked from ${startDate} to ${endDate}.`
+          );
+        } else {
+          Alert.alert("Error", errorMessage);
+        }
+      } else {
+        Alert.alert("Error", "Failed to confirm booking. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmHotelBooking = async (): Promise<void> => {
+    try {
+      // If booking is already confirmed, don't proceed
+      if (bookingConfirmed) {
+        console.log("Hotel booking already confirmed, skipping duplicate confirmation");
+        return;
+      }
+      
+      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+
+      if (!token) {
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        return;
+      }
+
+      if (!pidx) {
+        Alert.alert("Error", "Payment ID not found. Please try the payment again.");
+        return;
+      }
+
+      // First verify the payment
+      const verifyResponse = await axios.post(
+        `${API_BASE_URL}/payment/verify-payment`,
+        { pidx },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Payment verification response:", verifyResponse.data);
+
+      if (!verifyResponse.data.success) {
+        Alert.alert("Error", "Payment verification failed. Please try again.");
+        return;
+      }
+
+      // If payment is verified, create the hotel booking
+      const bookingData = {
+        hotelId,
+        startDate,
+        endDate,
+        numberOfRooms,
+        paymentStatus: true,
+        transactionId: verifyResponse.data.transaction?.transaction_id || "",
+      };
+
+      console.log("Creating hotel booking with data:", bookingData);
+
+      const response = await axios.post(
+        `${API_BASE_URL}/booking/hotel/create`,
+        bookingData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Hotel booking creation response:", response.data);
+
+      if (response.data.success) {
+        Alert.alert("Success", "Hotel booking confirmed successfully!");
+        // Don't navigate back, stay on the current page
+        // router.back();
+      } else {
+        Alert.alert("Error", "Failed to confirm hotel booking.");
+      }
+    } catch (error: any) {
+      console.error("Hotel Booking Error:", error);
+      
+      // Check if the error is due to overlapping bookings
+      if (error.response && error.response.status === 400 && error.response.data.error) {
+        const errorMessage = error.response.data.error;
+        const existingBooking = error.response.data.existingBooking;
+        
+        if (existingBooking) {
+          const startDate = new Date(existingBooking.startDate).toLocaleDateString();
+          const endDate = new Date(existingBooking.endDate).toLocaleDateString();
+          
+          Alert.alert(
+            "Booking Unavailable", 
+            `${errorMessage}\n\nBooked from ${startDate} to ${endDate}.`
+          );
+        } else {
+          Alert.alert("Error", errorMessage);
+        }
+      } else {
+        Alert.alert("Error", "Failed to confirm hotel booking. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -605,6 +817,80 @@ const Booking = () => {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Function to handle review submission
+  const handleSubmitReview = async () => {
+    if (userRating === 0) {
+      Alert.alert("Error", "Please select a rating");
+      return;
+    }
+    
+    if (!userReview.trim()) {
+      Alert.alert("Error", "Please enter a review");
+      return;
+    }
+    
+    try {
+      setSubmittingReview(true);
+      const token = await AsyncStorage.getItem("token");
+      
+      if (!token) {
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        return;
+      }
+      
+      // Determine if we're rating a guide or hotel
+      const ratingData: RatingData = {
+        rating: userRating,
+        review: userReview.trim(),
+      };
+      
+      // Add either guideId or hotelId to the request
+      if (guideId) {
+        ratingData.guideId = guideId;
+      } else if (hotelId) {
+        ratingData.hotelId = hotelId;
+      } else {
+        Alert.alert("Error", "No guide or hotel ID found");
+        return;
+      }
+      
+      // Submit the rating to the backend
+      const response = await axios.post(
+        `${API_BASE_URL}/rate/createRating`,
+        ratingData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      
+      if (response.data && response.data.success) {
+        // Refresh the ratings after successful submission
+        if (guideId) {
+          fetchRatings("guide", guideId);
+        } else if (hotelId) {
+          fetchRatings("hotel", hotelId);
+        }
+        
+        // Reset form and close modal
+        setUserRating(0);
+        setUserReview("");
+        setReviewModalVisible(false);
+        
+        Alert.alert("Success", "Your review has been submitted successfully!");
+      } else {
+        Alert.alert("Error", "Failed to submit review. Please try again later.");
+      }
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      Alert.alert("Error", "Failed to submit review. Please try again later.");
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -748,11 +1034,13 @@ const Booking = () => {
 
                 {/* Khalti Payment Button */}
                 <TouchableOpacity
-                  disabled={loading}
-                  className="mt-6 bg-green-600 p-3 rounded-lg items-center"
+                  disabled={loading || isCheckingAvailability}
+                  className={`mt-6 p-3 rounded-lg items-center ${
+                    loading || isCheckingAvailability ? "bg-gray-400" : "bg-green-600"
+                  }`}
                   onPress={handleKhaltiPayment}
                 >
-                  {loading ? (
+                  {loading || isCheckingAvailability ? (
                     <ActivityIndicator color="white" />
                   ) : (
                     <Text className="text-white font-bold">
@@ -777,9 +1065,30 @@ const Booking = () => {
           source={{ uri: paymentUrl }}
           onNavigationStateChange={(navState) => {
             console.log("Navigating to:", navState.url);
-            if (navState.url.includes("payment-success")) {
-              setPaymentModalVisible(false);
-              confirmBooking(navState.url.split("pidx=")[1]); // Extract pidx from URL
+            
+            // Check if the URL contains the payment verification endpoint
+            if (navState.url.includes("/payment/verify-payment") || 
+                navState.url.includes("/khalti/verify-payment")) {
+              
+              // Extract pidx from URL if available
+              const pidxMatch = navState.url.match(/[?&]pidx=([^&]+)/);
+              if (pidxMatch && pidxMatch[1]) {
+                setPidx(pidxMatch[1]);
+              }
+              
+              // Extract status from URL if available
+              const statusMatch = navState.url.match(/[?&]status=([^&]+)/);
+              if (statusMatch && statusMatch[1] === "Completed" && !bookingConfirmed) {
+                setPaymentModalVisible(false);
+                setBookingConfirmed(true);
+                
+                // Call the appropriate confirmation function based on booking type
+                if (guideId) {
+                  confirmBooking();
+                } else if (hotelId) {
+                  confirmHotelBooking();
+                }
+              }
             }
           }}
         />
@@ -815,121 +1124,119 @@ const Booking = () => {
 
         {/* About Section */}
         {selectedTab === "About" && (
-          <View className="mt-4 p-3 gap-5">
+          <View className="mt-4 p-4 bg-white rounded-lg shadow-sm">
             {loadingGuideDetails ? (
-              <View className="items-center justify-center py-4">
+              <View className="items-center justify-center py-8">
                 <ActivityIndicator size="large" color="#3B82F6" />
-                <Text className="mt-2 text-gray-600">Loading guide details...</Text>
+                <Text className="mt-3 text-gray-600 font-medium">Loading guide details...</Text>
               </View>
             ) : guideDetails ? (
-              <View className="space-y-4">
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Name:</Text>
-                  <Text className="text-gray-600">{guideDetails.name || guideName}</Text>
+              <View className="space-y-5 gap-4">
+                <View className="bg-blue-50 p-4 rounded-lg">
+                  <Text className="text-lg font-bold text-blue-800 mb-2">Guide Information</Text>
+                  <View className="space-y-3">
+                    <View className="flex-row justify-between border-b border-blue-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Name:</Text>
+                      <Text className="text-gray-800">{guideDetails.name || guideName}</Text>
+                    </View>
+                    <View className="flex-row justify-between border-b border-blue-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Specialization:</Text>
+                      <Text className="text-gray-800">{guideDetails.specialization || guideSpecialization}</Text>
+                    </View>
+                    <View className="flex-row justify-between border-b border-blue-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Location:</Text>
+                      <Text className="text-gray-800">{guideDetails.location || "Not specified"}</Text>
+                    </View>
+                  </View>
                 </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Specialization:</Text>
-                  <Text className="text-gray-600">{guideDetails.specialization || guideSpecialization}</Text>
+                
+                <View className="bg-green-50 p-4 rounded-lg">
+                  <Text className="text-lg font-bold text-green-800 mb-2">Contact Details</Text>
+                  <View className="space-y-3">
+                    <View className="flex-row justify-between border-b border-green-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Phone:</Text>
+                      <Text className="text-gray-800">{guideDetails.phoneNumber || "Not specified"}</Text>
+                    </View>
+                    <View className="flex-row justify-between border-b border-green-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Email:</Text>
+                      <Text className="text-gray-800">{guideDetails.email || "Not specified"}</Text>
+                    </View>
+                    <View className="flex-row justify-between border-b border-green-100 pb-2">
+                      <Text className="text-gray-700 font-semibold">Charge per Day:</Text>
+                      <Text className="text-gray-800 font-bold">{guideDetails.charge ? `Rs. ${guideDetails.charge}` : "Not specified"}</Text>
+                    </View>
+                  </View>
                 </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Location:</Text>
-                  <Text className="text-gray-600">{guideDetails.location || "Not specified"}</Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Contact:</Text>
-                  <Text className="text-gray-600">{guideDetails.phoneNumber || "Not specified"}</Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Email:</Text>
-                  <Text className="text-gray-600">{guideDetails.email || "Not specified"}</Text>
-                </View>
-                <View className="flex-row justify-between">
-                  <Text className="text-gray-600 font-semibold">Charge per Day:</Text>
-                  <Text className="text-gray-600">{guideDetails.charge ? `Rs. ${guideDetails.charge}` : "Not specified"}</Text>
-                </View>
+                
+                {guideDetails.about && (
+                  <View className="bg-purple-50 p-4 rounded-lg">
+                    <Text className="text-lg font-bold text-purple-800 mb-2">About</Text>
+                    <Text className="text-gray-700 leading-5">{guideDetails.about}</Text>
+                  </View>
+                )}
               </View>
             ) : (
-              <View className="items-center justify-center py-4">
-                <Text className="text-gray-600">No guide details available</Text>
+              <View className="items-center justify-center py-8 bg-gray-50 rounded-lg">
+                <Ionicons name="information-circle-outline" size={40} color="#6B7280" />
+                <Text className="mt-3 text-gray-600 font-medium">No guide details available</Text>
               </View>
             )}
           </View>
         )}
 
         {selectedTab === "Reviews" && (
-          <View className="mt-4 p-3 space-y-4">
-            {/* Existing Reviews */}
-            <FlatList
-              data={allReviews}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <View className="bg-gray-100 p-3 rounded-lg">
-                  <Text className="font-semibold">{item.name}</Text>
-                  <Text className="text-yellow-500">{item.rating}</Text>
-                  <Text className="text-gray-600">{item.comment}</Text>
-                </View>
-              )}
-            />
-
-            {/* Divider */}
-            <View className="border-t border-gray-300 pt-4" />
-
-            {/* New Review Section */}
-            <Text className="text-lg font-bold">Write a Review</Text>
-
-            {/* Star Rating */}
-            <View className="flex-row mb-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity
-                  key={star}
-                  onPress={() => setUserRating(star)}
-                >
-                  <Ionicons
-                    name={star <= userRating ? "star" : "star-outline"}
-                    size={28}
-                    color="#facc15"
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Review Input */}
-            <View className="border border-gray-300 rounded-md p-2">
-              <TextInput
-                multiline
-                numberOfLines={4}
-                placeholder="Write your experience here..."
-                value={userReview}
-                onChangeText={setUserReview}
-                className="text-base text-gray-700"
-              />
-            </View>
-
-            {/* Submit Review */}
-            <TouchableOpacity
-              className="bg-blue-500 p-3 rounded-md items-center mt-2"
-              onPress={() => {
-                if (!userRating || !userReview.trim()) {
-                  Alert.alert("Error", "Please add both rating and comment.");
-                  return;
-                }
-
-                const newReview = {
-                  id: (allReviews.length + 1).toString(),
-                  name: "You",
-                  rating: "⭐".repeat(userRating),
-                  comment: userReview.trim(),
-                };
-
-                setAllReviews([newReview, ...allReviews]);
-                setUserRating(0);
-                setUserReview("");
-                Alert.alert("Thank you!", "Your review has been submitted.");
-              }}
-            >
-              <Text className="text-white font-semibold">Submit Review</Text>
-            </TouchableOpacity>
+          <View className="mt-4 p-3">
+            <View className="flex-row justify-between items-center mb-4">
+              <View>
+                <Text className="text-lg font-bold text-gray-800">Reviews</Text>
+                {totalRatings > 0 && (
+                  <View className="flex-row items-center mt-1">
+                    <Text className="text-yellow-500 mr-1">
+                      {"⭐".repeat(Math.round(averageRating))}
+                    </Text>
+            <Text className="text-gray-600">
+                      ({averageRating.toFixed(1)} • {totalRatings} reviews)
+            </Text>
           </View>
+        )}
+              </View>
+              <TouchableOpacity 
+                className="bg-blue-500 px-4 py-2 rounded-full"
+                onPress={() => setReviewModalVisible(true)}
+              >
+                <Text className="text-white font-medium">Write a Review</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {loadingReviews ? (
+              <View className="items-center justify-center py-8">
+                <ActivityIndicator size="large" color="#3B82F6" />
+                <Text className="mt-3 text-gray-600 font-medium">Loading reviews...</Text>
+              </View>
+            ) : allReviews.length > 0 ? (
+          <FlatList
+                data={allReviews}
+                keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+                  <View className="bg-white p-4 rounded-lg mb-3 shadow-sm">
+                    <View className="flex-row justify-between items-center mb-2">
+                      <Text className="font-semibold text-gray-800">{item.userName}</Text>
+                      <Text className="text-yellow-500">{"⭐".repeat(item.rating)}</Text>
+                    </View>
+                    <Text className="text-gray-600">{item.review}</Text>
+                    <Text className="text-gray-400 text-xs mt-2">
+                      {new Date(item.createdAt).toLocaleDateString()}
+                    </Text>
+              </View>
+            )}
+          />
+            ) : (
+              <View className="items-center justify-center py-8 bg-gray-50 rounded-lg">
+                <Ionicons name="star-outline" size={40} color="#6B7280" />
+                <Text className="mt-3 text-gray-600 font-medium">No reviews yet</Text>
+              </View>
+        )}
+      </View>
         )}
       </View>
 
@@ -1012,6 +1319,94 @@ const Booking = () => {
             </View>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Review Submission Bottom Sheet */}
+      <Modal
+        visible={reviewModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setReviewModalVisible(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <TouchableWithoutFeedback onPress={() => {
+            Keyboard.dismiss();
+            setReviewModalVisible(false);
+          }}>
+            <View className="flex-1 justify-end bg-blue-100 bg-opacity-70">
+              <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                <View className="bg-white rounded-t-3xl p-6">
+                  <View className="items-center mb-4">
+                    <View className="w-16 h-1 bg-gray-300 rounded-full mb-4" />
+                    <Text className="text-xl font-bold">Write a Review</Text>
+                  </View>
+                  
+                  <ScrollView className="max-h-[70vh]">
+                    <View className="mb-6">
+                      <Text className="text-gray-700 font-medium mb-2">Your Rating</Text>
+                      <View className="flex-row justify-center space-x-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <TouchableOpacity 
+                            key={star} 
+                            onPress={() => setUserRating(star)}
+                          >
+                            <Ionicons 
+                              name={star <= userRating ? "star" : "star-outline"} 
+                              size={32} 
+                              color="#FCD34D" 
+                            />
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                    
+                    <View className="mb-6">
+                      <Text className="text-gray-700 font-medium mb-2">Your Review</Text>
+                      <TextInput
+                        className="border border-gray-300 rounded-lg p-3 h-32 text-base"
+                        placeholder="Share your experience with this guide..."
+                        multiline
+                        textAlignVertical="top"
+                        value={userReview}
+                        onChangeText={setUserReview}
+                      />
+                    </View>
+                  </ScrollView>
+                  
+                  <View className="flex-row space-x-3 mt-2 gap-4">
+                    <TouchableOpacity 
+                      className="flex-1 bg-gray-200 p-3 rounded-lg items-center"
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setReviewModalVisible(false);
+                      }}
+                    >
+                      <Text className="text-gray-700 font-medium">Cancel</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      className="flex-1 bg-blue-500 p-3 rounded-lg items-center"
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        handleSubmitReview();
+                      }}
+                      disabled={submittingReview}
+                    >
+                      {submittingReview ? (
+                        <ActivityIndicator color="white" />
+                      ) : (
+                        <Text className="text-white font-medium">Submit</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
