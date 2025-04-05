@@ -204,4 +204,32 @@ const getGuideLocations = async (req, res) => {
   }
 };
 
-module.exports = { storeGuideDetails, getGuideDetails, getGuideProfileDetails, getGuideLocations };
+// Get all guide details
+const getAllGuideDetails = async (req, res) => {
+  try {
+    const guides = await prisma.guide.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return res.status(200).json({ 
+      success: true, 
+      guides 
+    });
+  } catch (error) {
+    console.error("Error fetching all guide details:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+module.exports = { storeGuideDetails, getGuideDetails, getGuideProfileDetails, getGuideLocations, getAllGuideDetails };
