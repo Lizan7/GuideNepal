@@ -275,6 +275,11 @@ const getUserBookings = async (req, res) => {
             email: true,
             specialization: true,
             profileImage: true,
+            user: {
+              select: {
+                name: true
+              }
+            }
           },
         },
       },

@@ -1,68 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-// Get all users
-const getUsers = async (req, res) => {
-  try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        createdAt: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return res.status(200).json({ success: true, users });
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
-// Get all guides
-const getGuides = async (req, res) => {
-  try {
-    const guides = await prisma.guide.findMany({
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true, 
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return res.status(200).json({ success: true, guides });
-  } catch (error) {
-    console.error("Error fetching guides:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
-  }
-};
-
-// Get all hotels
-const getHotels = async (req, res) => {
-  try {
-    const hotels = await prisma.hotel.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return res.status(200).json({ success: true, hotels });
-  } catch (error) {
-    console.error("Error fetching hotels:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
-  }
-};
 
 // Verify a guide
 const verifyGuide = async (req, res) => {
@@ -123,9 +61,6 @@ const verifyHotel = async (req, res) => {
 };
 
 module.exports = {
-  getUsers,
-  getGuides,
-  getHotels,
   verifyGuide,
   verifyHotel,
 }; 

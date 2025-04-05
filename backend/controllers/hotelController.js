@@ -222,9 +222,43 @@ const getHotelLocations = async (req, res) => {
   }
 };
 
+// Get all hotel details with comprehensive information
+const getAllHotelDetails = async (req, res) => {
+  try {
+    const hotels = await prisma.hotel.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    if (!hotels.length) {
+      console.error("❌ No hotels found in database");
+      return res.status(404).json({ error: "No hotels found" });
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      hotels 
+    });
+  } catch (error) {
+    console.error("❌ Error fetching all hotel details:", error);
+    return res.status(500).json({ error: "Internal Server Error", details: error.message });
+  }
+};
+
 module.exports = {
   verifyHotelDetails,
   getHotels,
   getHotelById,
   getHotelLocations,
+  getAllHotelDetails,
 };
