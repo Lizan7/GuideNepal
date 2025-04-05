@@ -174,6 +174,13 @@ const GuideHome = () => {
         </View>
 
         <View className="items-center">
+          <TouchableOpacity onPress={() => router.replace("/GuidePackage")}>
+            <Ionicons name="person-outline" size={20} color="gray" />
+          </TouchableOpacity>
+          <Text className="text-gray-500">Package</Text>
+        </View>
+
+        <View className="items-center">
           <TouchableOpacity onPress={() => router.replace("/GuideProfile")}>
             <Ionicons name="person-outline" size={20} color="gray" />
           </TouchableOpacity>
