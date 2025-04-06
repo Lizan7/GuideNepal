@@ -167,6 +167,11 @@ const UserHome = () => {
             className="m-4"
           />
           <Text className="font-bold text-gray-800 text-xl">GuideNepal</Text>
+          <View className="absolute right-4">
+          <TouchableOpacity onPress={() => router.replace("/UserMenu")}>
+              <Ionicons name="menu-outline" size={24} color="black" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView
@@ -469,10 +474,10 @@ const UserHome = () => {
             <Text className="text-gray-500">Chat</Text>
           </View>
           <View className="items-center">
-            <TouchableOpacity onPress={() => router.replace("/UserMenu")}>
+            <TouchableOpacity onPress={() => router.replace("/UserPackage")}>
               <Ionicons name="menu-outline" size={20} color="gray" />
             </TouchableOpacity>
-            <Text className="text-gray-500">Menu</Text>
+            <Text className="text-gray-500">Package</Text>
           </View>
         </View>
 

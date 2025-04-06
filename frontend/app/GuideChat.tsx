@@ -248,6 +248,13 @@ const GuideChat: React.FC = () => {
           <Text style={{ color: "#A855F7", fontSize: 12 }}>Chat</Text>
         </View>
 
+        <View className="items-center">
+          <TouchableOpacity onPress={() => router.replace("/GuidePackage")}>
+            <Ionicons name="person-outline" size={20} color="gray" />
+          </TouchableOpacity>
+          <Text className="text-gray-500">Package</Text>
+        </View>
+
         <View style={{ alignItems: "center" }}>
           <TouchableOpacity onPress={() => router.replace("/GuideProfile")}>
             <Ionicons name="person-outline" size={24} color="gray" />

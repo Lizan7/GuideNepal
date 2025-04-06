@@ -211,7 +211,7 @@ const HotelBooking = () => {
         console.log("Hotel details response:", response.data);
 
         if (response.data && response.data.hotel) {
-          setHotelDetails(response.data.hotel);
+        setHotelDetails(response.data.hotel);
         } else {
           console.log("No hotel data in response");
           setHotelDetails(null);
@@ -231,7 +231,7 @@ const HotelBooking = () => {
     };
 
     if (hotelId) {
-      fetchHotelDetails();
+    fetchHotelDetails();
     }
   }, [hotelId]);
 
@@ -251,13 +251,13 @@ const HotelBooking = () => {
       console.log("🔵 Setting loading state to true");
       setLoading(true);
       setBookingConfirmed(false);
-      
+
       if (startDate > endDate) {
         Alert.alert("Invalid Dates ❌", "Start date must be before end date.");
         setLoading(false);
         return;
       }
-      
+
       const token = await AsyncStorage.getItem("token");
       console.log("🔵 Token retrieved:", token ? "Token exists" : "No token found");
 
@@ -447,27 +447,6 @@ const HotelBooking = () => {
     }
   };
 
-  // ✅ Static Reviews Data
-  const reviews = [
-    {
-      id: "1",
-      name: "John Doe",
-      rating: "⭐⭐⭐⭐⭐",
-      comment: "Excellent hotel! Very clean and well managed.",
-    },
-    {
-      id: "2",
-      name: "Jane Smith",
-      rating: "⭐⭐⭐⭐",
-      comment: "Great location and friendly staff!",
-    },
-    {
-      id: "3",
-      name: "Michael Lee",
-      rating: "⭐⭐⭐⭐⭐",
-      comment: "Best experience ever! Highly recommend.",
-    },
-  ];
 
   return (
     <View className="flex-1 bg-white p-4">
@@ -487,8 +466,6 @@ const HotelBooking = () => {
           style={{ width: 200, height: 150, borderRadius: 10 }}
         />
         <Text className="text-lg font-semibold mt-2">{hotelName}</Text>
-        <Text className="text-gray-500">{hotelLocation}</Text>
-        <Text className="text-lg font-bold mt-2">Rs. {hotelPrice} / night</Text>
       </View>
 
       {/* Action Buttons */}
@@ -496,10 +473,10 @@ const HotelBooking = () => {
     
 
         <TouchableOpacity
-          className="bg-blue-400 px-12 py-6 rounded-3xl"
+          className="bg-blue-400 px-6 py-3 rounded-3xl"
           onPress={() => setModalVisible(true)}
         >
-          <Ionicons name="calendar-outline" size={30} color="black" />
+          <Text className="text-white font-bold text-lg">Book Now</Text>
         </TouchableOpacity>
       </View>
 
@@ -554,7 +531,7 @@ const HotelBooking = () => {
                       <Text className="text-gray-700 font-medium">Price per Night:</Text>
                       <Text className="text-gray-800 font-bold text-green-600">
                         {hotelDetails.price ? `Rs. ${hotelDetails.price}` : hotelPrice ? `Rs. ${hotelPrice}` : "Not specified"}
-                      </Text>
+            </Text>
                     </View>
                     
                   </View>
@@ -628,10 +605,10 @@ const HotelBooking = () => {
                 <Text className="mt-3 text-gray-600">Loading reviews...</Text>
               </View>
             ) : ratings.length > 0 ? (
-              <FlatList
+          <FlatList
                 data={ratings}
                 keyExtractor={(item) => item.id.toString()}
-                renderItem={({ item }) => (
+            renderItem={({ item }) => (
                   <View className="bg-white p-4 rounded-lg mb-3 shadow-sm">
                     <View className="flex-row justify-between items-center mb-2">
                       <Text className="font-semibold text-gray-800">{item.userName}</Text>

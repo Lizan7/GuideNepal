@@ -53,6 +53,7 @@ const LoginScreen = () => {
         } else if (user.role === "HOTEL") {
           router.replace("/HotelHome");
         }
+        
       } else {
         Alert.alert("Error", response.data.error || "Login failed");
       }

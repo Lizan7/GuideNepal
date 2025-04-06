@@ -266,7 +266,7 @@ const UserSearch = () => {
           </View>
           <View className="flex-row items-center mt-1">
             <Ionicons name="bed-outline" size={16} color="#6B7280" />
-            <Text className="text-gray-500 ml-1">{item.totalRooms} rooms</Text>
+            <Text className="text-gray-500 ml-1">{item.roomsAvailable} rooms</Text>
           </View>
           <View className="flex-row items-center mt-1">
             <Ionicons name="cash-outline" size={16} color="#6B7280" />
@@ -310,11 +310,12 @@ const UserSearch = () => {
           Search for locals & hotels
         </Text>
       </View>
-      <View className="flex-row items-center border rounded-md px-3 py-2 bg-gray-100 mt-7">
+      <View className="flex-row items-center border rounded-md px-3 py-2 bg-gray-100 mt-5">
         <Ionicons name="search" size={20} color="gray" />
         <TextInput
-          className="ml-2 flex-1"
+          className="ml-2"
           placeholder="Where are you going?"
+          placeholderTextColor="gray"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />

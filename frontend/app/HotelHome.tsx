@@ -87,6 +87,7 @@ const HotelHome = () => {
           </TouchableOpacity>
           <Text className="text-gray-500">Book</Text>
         </View>
+        
 
         <View className="items-center">
           <TouchableOpacity onPress={() => router.replace("/HotelProfile")}> 

@@ -23,13 +23,14 @@ interface Guide {
   specialization?: string;
   user?: {
     name: string;
+    email?: string;
   };
 }
 
 interface Hotel {
   id: string;
   name: string;
-  hotelProfile?: string;
+  profileImage?: string;
   location?: string;
 }
 
@@ -38,8 +39,11 @@ interface Booking {
   startDate: string;
   endDate: string;
   status: string;
+  paymentStatus?: boolean;
   guide?: Guide;
   hotel?: Hotel;
+  rooms?: number;
+  price?: number;
 }
 
 const UserBooking = () => {
@@ -105,21 +109,32 @@ const UserBooking = () => {
     setShowBookingDetails(true);
   };
 
-  const renderBookingItem = ({ item }, type) => {
+  const renderBookingItem = ({ item }: { item: Booking & { type: string } }, type: string) => {
     console.log("Rendering booking item:", item);
     console.log("Booking type:", type);
+    
+    // Extract the filename from the path for both guide and hotel images
+    const getImagePath = (path: string | undefined, type: string) => {
+      if (!path) return "https://via.placeholder.com/150";
+      
+      // Remove any leading slashes and 'uploads/' prefix
+      const cleanPath = path.replace(/^\/+/, '');
+      
+      if (type === "guide") {
+        return `${API_BASE_URL}/guideVerification/${cleanPath.replace(/^uploads\//, '')}`;
+      } else {
+        // For hotel images, keep the hotelUploads prefix
+        return `${API_BASE_URL}${cleanPath}`;
+      }
+    };
     
     return (
       <View className="bg-gray-100 p-4 m-2 rounded-lg flex-row items-center">
         <Image
           source={{
             uri: type === "guide" 
-              ? (item.guide?.profileImage 
-                  ? `${API_BASE_URL}/guideVerification/${item.guide.profileImage}`
-                  : "https://via.placeholder.com/150")
-              : (item.hotel?.hotelProfile 
-                  ? `${API_BASE_URL}/hotelUploads/${item.hotel.hotelProfile}`
-                  : "https://via.placeholder.com/150")
+              ? getImagePath(item.guide?.profileImage, "guide")
+              : getImagePath(item.hotel?.profileImage, "hotel")
           }}
           className="w-20 h-20 rounded-lg"
           onError={(e) => {
@@ -133,7 +148,7 @@ const UserBooking = () => {
         <View className="flex-1 ml-4">
           <Text className="text-base font-bold">
             {type === "guide" 
-              ? (item.guide?.name || item.guide?.user?.name || "Unknown Guide")
+              ? (item.guide?.user?.name || "Unknown Guide")
               : (item.hotel?.name || "Unknown Hotel")}
           </Text>
           <Text className="text-sm text-gray-500">
@@ -174,6 +189,50 @@ const UserBooking = () => {
   const capitalizeFirstLetter = (str: string | undefined) => {
     if (!str) return "All";
     return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  // Add a function to determine booking status based on dates
+  const getBookingStatus = (startDate: string, endDate: string) => {
+    const now = new Date();
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (now > end) {
+      return "completed";
+    } else if (now >= start && now <= end) {
+      return "ongoing";
+    } else {
+      return "pending";
+    }
+  };
+
+  // Add a function to format currency
+  const formatCurrency = (amount: number | undefined) => {
+    if (amount === undefined) return "N/A";
+    return `Rs. ${amount.toLocaleString()}`;
+  };
+
+  // Add a function to calculate number of nights
+  const calculateNights = (startDate: string, endDate: string) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Add a function to get status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "text-green-600";
+      case "ongoing":
+        return "text-blue-600";
+      case "pending":
+        return "text-yellow-600";
+      default:
+        return "text-gray-600";
+    }
   };
 
   return (
@@ -289,7 +348,7 @@ const UserBooking = () => {
           activeOpacity={1} 
           onPress={() => setShowBookingDetails(false)}
         >
-          <View className="flex-1 justify-end">
+          <View className="flex-1 justify-end bg-black/50">
             <View className="bg-white rounded-t-3xl p-6">
               <View className="items-center mb-6">
                 <View className="w-16 h-1 bg-gray-300 rounded-full mb-4" />
@@ -303,18 +362,23 @@ const UserBooking = () => {
                       source={{
                         uri: bookingType === "guide"
                           ? (selectedBooking.guide?.profileImage
-                              ? `${API_BASE_URL}/guideVerification/${selectedBooking.guide.profileImage}`
+                              ? `${API_BASE_URL}/guideVerification/${selectedBooking.guide.profileImage.replace(/^\/+/, '').replace(/^uploads\//, '')}`
                               : "https://via.placeholder.com/150")
-                          : (selectedBooking.hotel?.hotelProfile
-                              ? `${API_BASE_URL}/uploads/${selectedBooking.hotel.hotelProfile}`
+                          : (selectedBooking.hotel?.profileImage
+                              ? `${API_BASE_URL}${selectedBooking.hotel.profileImage.replace(/^\/+/, '')}`
                               : "https://via.placeholder.com/150")
                       }}
                       className="w-20 h-20 rounded-lg"
+                      onError={(e) => {
+                        console.log("Image Load Error in modal:", e.nativeEvent.error);
+                        console.log("Failed to load image for:", bookingType);
+                        console.log("Selected booking data:", JSON.stringify(selectedBooking, null, 2));
+                      }}
                     />
                     <View className="ml-4">
                       <Text className="text-lg font-bold">
                         {bookingType === "guide"
-                          ? (selectedBooking.guide?.name || selectedBooking.guide?.user?.name || "Unknown Guide")
+                          ? (selectedBooking.guide?.user?.name || "Unknown Guide")
                           : (selectedBooking.hotel?.name || "Unknown Hotel")}
                       </Text>
                       <Text className="text-sm text-gray-600">
@@ -325,21 +389,53 @@ const UserBooking = () => {
                     </View>
                   </View>
 
-                  <Text className="text-base mb-2">
-                    <Text className="font-semibold">Booking Dates:</Text>{" "}
-                    {new Date(selectedBooking.startDate).toDateString()} -{" "}
-                    {new Date(selectedBooking.endDate).toDateString()}
-                  </Text>
-                  <Text className="text-base mb-2">
-                    <Text className="font-semibold">Status:</Text>{" "}
-                    <Text className={`${
-                      selectedBooking.status === "confirmed" ? "text-green-600" :
-                      selectedBooking.status === "pending" ? "text-yellow-600" :
-                      "text-red-600"
-                    }`}>
-                      {capitalizeFirstLetter(selectedBooking.status)}
+                  <View className="bg-gray-100 p-3 rounded-lg mb-4">
+                    <Text className="text-base mb-2">
+                      <Text className="font-semibold">Booking ID:</Text>{" "}
+                      {selectedBooking.id}
                     </Text>
-                  </Text>
+                    <Text className="text-base mb-2">
+                      <Text className="font-semibold">Booking Dates:</Text>{" "}
+                      {new Date(selectedBooking.startDate).toDateString()} -{" "}
+                      {new Date(selectedBooking.endDate).toDateString()}
+                    </Text>
+                    <Text className="text-base mb-2">
+                      <Text className="font-semibold">Status:</Text>{" "}
+                      <Text className={getStatusColor(getBookingStatus(selectedBooking.startDate, selectedBooking.endDate))}>
+                        {getBookingStatus(selectedBooking.startDate, selectedBooking.endDate).charAt(0).toUpperCase() + 
+                         getBookingStatus(selectedBooking.startDate, selectedBooking.endDate).slice(1)}
+                      </Text>
+                    </Text>
+                    <Text className="text-base mb-2">
+                      <Text className="font-semibold">Payment Status:</Text>{" "}
+                      <Text className={selectedBooking.paymentStatus ? "text-green-600" : "text-red-600"}>
+                        {selectedBooking.paymentStatus ? "Paid" : "Unpaid"}
+                      </Text>
+                    </Text>
+                  </View>
+
+                  {bookingType === "hotel" && (
+                    <View className="bg-gray-100 p-3 rounded-lg mb-4">
+                      <Text className="text-base mb-2">
+                        <Text className="font-semibold">Rooms Booked:</Text>{" "}
+                        {selectedBooking.rooms || "N/A"}
+                      </Text>
+                      
+                    </View>
+                  )}
+
+                  {bookingType === "guide" && (
+                    <View className="bg-gray-100 p-3 rounded-lg mb-4">
+                      <Text className="text-base mb-2">
+                        <Text className="font-semibold">Guide Specialization:</Text>{" "}
+                        {selectedBooking.guide?.specialization || "Not specified"}
+                      </Text>
+                      <Text className="text-base mb-2">
+                        <Text className="font-semibold">Guide Contact:</Text>{" "}
+                        {selectedBooking.guide?.email || "Not available"}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               ) : (
                 <Text>No booking details available.</Text>

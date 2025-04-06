@@ -32,7 +32,10 @@ const Layout = () => {
         <Stack.Screen name="/Booking" options={{ headerShown: false }} />
         <Stack.Screen name="/SpecificHotel" options={{ headerShown: false }} />
         <Stack.Screen name="/Chatbot" options={{ headerShown: false }} />
-        <Stack.Screen name="/Admin" options={{ headerShown: false }} />
+        <Stack.Screen name="/admin" options={{ headerShown: false }} />
+        <Stack.Screen name="/UserPackage" options={{ headerShown: false }} />
+        <Stack.Screen name="/GuidePackage" options={{ headerShown: false }} />
+        <Stack.Screen name="/packageRegister" options={{ headerShown: false }} />
       </Stack>
 
       {/* Toast Notifications */}

@@ -443,12 +443,12 @@ const Booking = () => {
         const endDate = new Date(existingBooking.endDate).toLocaleDateString();
         
         if (existingBooking.userId === parseInt(userId || "0")) {
-          Alert.alert(
+        Alert.alert(
             "Already Booked", 
             `You have already booked this guide from ${startDate} to ${endDate}.`
-          );
-        } else {
-          Alert.alert(
+        );
+      } else {
+        Alert.alert(
             "Guide Not Available", 
             `This guide is already booked from ${startDate} to ${endDate}.`
           );
@@ -919,22 +919,24 @@ const Booking = () => {
       <View className="mt-6 flex-row justify-around">
         {/* Chat Button */}
         <TouchableOpacity
-          className="bg-gray-200 px-12 py-6 rounded-2xl"
+          className="bg-gray-200 px-6 py-3 rounded-3xl flex-row items-center gap-2"
           onPress={startChat}
         >
           <Ionicons
             name="chatbubble-ellipses-outline"
-            size={30}
+            size={24}
             color="black"
           />
+          <Text className="text-black font-bold text-lg">Chat</Text>
         </TouchableOpacity>
 
         {/* Book Button (Opens Modal) */}
         <TouchableOpacity
-          className="bg-blue-400 px-12 py-6 rounded-3xl"
+          className="bg-blue-400 px-6 py-3 rounded-3xl flex-row items-center gap-2"
           onPress={() => setModalVisible(true)}
         >
           <Ionicons name="calendar-outline" size={30} color="black" />
+          <Text className="text-black font-bold text-lg">Book Now</Text>
         </TouchableOpacity>
       </View>
 
