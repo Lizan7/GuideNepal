@@ -220,47 +220,35 @@ const GuideChat: React.FC = () => {
       </View>
 
       {/* Bottom Navigation */}
-      <View
-        style={{
-          backgroundColor: "white",
-          flexDirection: "row",
-          justifyContent: "space-around",
-          padding: 16,
-          borderTopWidth: 1,
-          borderTopColor: "#E5E7EB",
-        }}
-      >
-        <View style={{ alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.replace("/GuideHome")}>
-            <Ionicons name="home" size={24} color="gray" />
-          </TouchableOpacity>
-          <Text style={{ color: "#6B7280", fontSize: 12 }}>Dashboard</Text>
-        </View>
-
-        <View style={{ alignItems: "center" }}>
-          <TouchableOpacity>
-            <Ionicons
-              name="chatbubble-ellipses-outline"
-              size={24}
-              color="#A855F7"
-            />
-          </TouchableOpacity>
-          <Text style={{ color: "#A855F7", fontSize: 12 }}>Chat</Text>
-        </View>
-
-        <View className="items-center">
-          <TouchableOpacity onPress={() => router.replace("/GuidePackage")}>
-            <Ionicons name="person-outline" size={20} color="gray" />
-          </TouchableOpacity>
-          <Text className="text-gray-500">Package</Text>
-        </View>
-
-        <View style={{ alignItems: "center" }}>
-          <TouchableOpacity onPress={() => router.replace("/GuideProfile")}>
-            <Ionicons name="person-outline" size={24} color="gray" />
-          </TouchableOpacity>
-          <Text style={{ color: "#6B7280", fontSize: 12 }}>Profile</Text>
-        </View>
+      <View className="bg-white flex-row justify-around border-t border-gray-200 p-4">
+        <TouchableOpacity
+          onPress={() => router.replace("/GuideHome")}
+          className="items-center"
+        >
+          <Ionicons name="home" size={24} color="#3B82F6" />
+          <Text className="text-blue-600 text-sm mt-1">Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.replace("/GuideChat")}
+          className="items-center"
+        >
+          <Ionicons name="chatbubble-outline" size={24} color="#94A3B8" />
+          <Text className="text-gray-400 text-sm mt-1">Chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.replace("/GuidePackage")}
+          className="items-center"
+        >
+          <Ionicons name="briefcase-outline" size={24} color="#94A3B8" />
+          <Text className="text-gray-400 text-sm mt-1">Packages</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.replace("/GuideProfile")}
+          className="items-center"
+        >
+          <Ionicons name="person-outline" size={24} color="#94A3B8" />
+          <Text className="text-gray-400 text-sm mt-1">Profile</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
