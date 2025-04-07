@@ -71,18 +71,28 @@ const GuidePackage = () => {
       });
 
       console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-
+      
+      // Check if the response is OK
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+      
       // Get the response text first
       const responseText = await response.text();
-      console.log('Raw response:', responseText);
-
+      console.log('Raw response:', responseText.substring(0, 100) + '...');
+      
+      // Check if the response is empty
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Empty response from server');
+      }
+      
       // Try to parse the response as JSON
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
         console.error('JSON parse error:', parseError);
+        console.error('Response starts with:', responseText.substring(0, 50));
         throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
       }
 
@@ -90,18 +100,40 @@ const GuidePackage = () => {
       
       if (data.success) {
         // Transform the data to match our Package interface
-        const transformedPackages = data.data.map((pkg: any) => ({
-          id: pkg.id.toString(),
-          title: pkg.title,
-          description: pkg.description,
-          price: pkg.price,
-          duration: pkg.duration.toString(),
-          maxPeople: pkg.maxPeople,
-          image: pkg.image ? `${API_BASE_URL}${pkg.image}` : 'https://images.unsplash.com/photo-1585409677983-0f6c41ca9c3b?w=500',
-          locations: Array.isArray(pkg.locations) ? pkg.locations : 
-                    (typeof pkg.locations === 'string' ? JSON.parse(pkg.locations) : []),
-          difficulty: 'Moderate', // Default value since it's not in the API
-        }));
+        const transformedPackages = data.data.map((pkg: any) => {
+          // Handle image URL properly
+          let imageUrl = 'https://images.unsplash.com/photo-1585409677983-0f6c41ca9c3b?w=500';
+          
+          if (pkg.image) {
+            // Check if the image URL is already a full URL
+            if (pkg.image.startsWith('http://') || pkg.image.startsWith('https://')) {
+              imageUrl = pkg.image;
+            } else if (pkg.image.startsWith('/')) {
+              // If it starts with a slash, it's a relative path
+              imageUrl = `${API_BASE_URL}${pkg.image}`;
+            } else {
+              // Otherwise, assume it's a relative path without a leading slash
+              imageUrl = `${API_BASE_URL}/${pkg.image}`;
+            }
+            
+            console.log(`Package ${pkg.id} image URL: ${imageUrl}`);
+          }
+          
+          return {
+            id: pkg.id.toString(),
+            title: pkg.title,
+            description: pkg.description,
+            price: pkg.price,
+            duration: pkg.duration.toString(),
+            maxPeople: pkg.maxPeople,
+            image: imageUrl,
+            locations: Array.isArray(pkg.locations) ? pkg.locations : 
+                      (typeof pkg.locations === 'string' ? 
+                        (pkg.locations.startsWith('[') ? JSON.parse(pkg.locations) : pkg.locations.split(',')) : 
+                        []),
+            difficulty: 'Moderate', // Default value since it's not in the API
+          };
+        });
         
         setPackages(transformedPackages);
       } else {
@@ -116,6 +148,8 @@ const GuidePackage = () => {
           errorMessage += 'Please check your internet connection and make sure the server is running.';
         } else if (error.message.includes('Invalid JSON')) {
           errorMessage += 'The server returned an invalid response. Please try again later.';
+        } else if (error.message.includes('Empty response')) {
+          errorMessage += 'The server returned an empty response. Please try again later.';
         } else {
           errorMessage += error.message;
         }
@@ -172,11 +206,18 @@ const GuidePackage = () => {
 
   const renderPackageCard = ({ item }: { item: Package }) => (
     <View className="bg-white rounded-lg shadow-md m-2 overflow-hidden">
-      <Image
-        source={{ uri: item.image }}
-        className="w-full h-48"
-        resizeMode="cover"
-      />
+      <View className="w-full h-48 bg-gray-200">
+        <Image
+          source={{ uri: item.image }}
+          className="w-full h-48"
+          resizeMode="cover"
+          onError={(e) => {
+            console.error('Image loading error:', e.nativeEvent.error);
+            // Set a fallback image if the original fails to load
+            item.image = 'https://images.unsplash.com/photo-1585409677983-0f6c41ca9c3b?w=500';
+          }}
+        />
+      </View>
       <View className="p-4">
         <Text className="text-xl font-bold text-gray-800">{item.title}</Text>
         <Text className="text-gray-600 mt-1">{item.description}</Text>
@@ -196,7 +237,7 @@ const GuidePackage = () => {
 
         <View className="flex-row justify-between items-center mt-4">
           <Text className="text-lg font-bold text-blue-600">
-            Rs. {item.price.toLocaleString()}
+            Enroll Price: Rs. {item.price.toLocaleString()}
           </Text>
           <View className="flex-row">
             <TouchableOpacity 
@@ -213,18 +254,6 @@ const GuidePackage = () => {
             </TouchableOpacity>
           </View>
         </View>
-
-        {item.difficulty && (
-          <View className="mt-2">
-            <Text className={`text-sm ${
-              item.difficulty === 'Easy' ? 'text-green-600' :
-              item.difficulty === 'Moderate' ? 'text-yellow-600' :
-              'text-red-600'
-            }`}>
-              Difficulty: {item.difficulty}
-            </Text>
-          </View>
-        )}
       </View>
     </View>
   );
@@ -418,39 +447,36 @@ const GuidePackage = () => {
         {renderBottomSheet()}
 
         {/* Bottom Navigation */}
-        <View className="bg-white flex-row justify-around border-t p-4 border-gray-200">
-          <View className="items-center">
-            <TouchableOpacity onPress={() => router.replace("/GuideHome")}>
-              <Ionicons name="home" size={20} color="purple" />
-            </TouchableOpacity>
-            <Text className="text-purple-700">Dashboard</Text>
-          </View>
-
-          <View className="items-center">
-            <TouchableOpacity onPress={() => router.replace("/GuideChat")}>
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={20}
-                color="gray"
-              />
-            </TouchableOpacity>
-            <Text className="text-gray-500">Chat</Text>
-          </View>
-
-          <View className="items-center">
-            <TouchableOpacity onPress={() => router.replace("/GuidePackage")}>
-              <Ionicons name="person-outline" size={20} color="gray" />
-            </TouchableOpacity>
-            <Text className="text-gray-500">Package</Text>
-          </View>
-
-          <View className="items-center">
-            <TouchableOpacity onPress={() => router.replace("/GuideProfile")}>
-              <Ionicons name="person-outline" size={20} color="gray" />
-            </TouchableOpacity>
-            <Text className="text-gray-500">Profile</Text>
-          </View>
-        </View>
+      <View className="bg-white flex-row justify-around border-t border-gray-200 p-4">
+        <TouchableOpacity
+          onPress={() => router.replace("/GuideHome")}
+          className="items-center"
+        >
+          <Ionicons name="home" size={24} color="#3B82F6" />
+          <Text className="text-blue-600 text-sm mt-1">Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.replace("/GuideChat")}
+          className="items-center"
+        >
+          <Ionicons name="chatbubble-outline" size={24} color="#94A3B8" />
+          <Text className="text-gray-400 text-sm mt-1">Chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.replace("/GuidePackage")}
+          className="items-center"
+        >
+          <Ionicons name="briefcase-outline" size={24} color="#94A3B8" />
+          <Text className="text-gray-400 text-sm mt-1">Packages</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.replace("/GuideProfile")}
+          className="items-center"
+        >
+          <Ionicons name="person-outline" size={24} color="#94A3B8" />
+          <Text className="text-gray-400 text-sm mt-1">Profile</Text>
+        </TouchableOpacity>
+      </View>
       </View>
     </GestureHandlerRootView>
   );

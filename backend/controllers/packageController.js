@@ -1,105 +1,135 @@
 const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
 
-const fs = require('fs').promises;
-const path = require('path');
-
-// Helper function to save base64 image
-const saveBase64Image = async (base64String, directory) => {
-  try {
-    if (!base64String) return null;
-
-    // Create directory if it doesn't exist
-    const uploadDir = path.join(__dirname, '..', 'uploads', directory);
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    // Extract the base64 data and file extension
-    const matches = base64String.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      throw new Error('Invalid base64 string');
+// Configure multer storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, "../uploads/packageImages/");
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
     }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname)); // Rename file with timestamp
+  },
+});
 
-    const fileExtension = matches[1];
-    const base64Data = matches[2];
-
-    // Generate unique filename
-    const filename = `package-${Date.now()}-${Math.round(Math.random() * 1E9)}.${fileExtension}`;
-    const filePath = path.join(uploadDir, filename);
-
-    // Save the file
-    await fs.writeFile(filePath, base64Data, 'base64');
-
-    // Return the relative path
-    return `${directory}/${filename}`;
-  } catch (error) {
-    console.error('Error saving base64 image:', error);
-    return null;
-  }
-};
+const upload = multer({ storage: storage }).single("image");
 
 // Create a new package
 const createPackage = async (req, res) => {
-  try {
-    const {
-      title,
-      description,
-      duration,
-      maxPeople,
-      locations,
-      price,
-      image, // This will be a base64 string
-    } = req.body;
-
-    // Get the guide ID from the authenticated user
-    const guideId = req.user.id;
-
-    // Validate required fields
-    if (!title || !description || !duration || !maxPeople || !locations || !price) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide all required fields",
-      });
+  upload(req, res, async (err) => {
+    if (err) {
+      console.error("File upload error:", err);
+      return res.status(400).json({ error: "File upload failed" });
     }
 
-    // Handle base64 image if provided
-    let packageImage = null;
-    if (image) {
-      packageImage = await saveBase64Image(image, 'packageImages');
-    }
-
-    // Convert locations string to array if it's a string
-    const locationArray = typeof locations === 'string' 
-      ? locations.split(',').map(loc => loc.trim())
-      : locations;
-
-    // Create package in database
-    const newPackage = await prisma.package.create({
-      data: {
+    try {
+      const {
         title,
         description,
-        duration: parseInt(duration),
-        maxPeople: parseInt(maxPeople),
-        locations: locationArray,
-        price: parseFloat(price),
-        image: packageImage,
-        guide: {
-          connect: { id: guideId }
-        }
-      },
-    });
+        duration,
+        maxPeople,
+        locations,
+        price,
+      } = req.body;
 
-    res.status(201).json({
-      success: true,
-      message: "Package created successfully",
-      data: newPackage,
-    });
-  } catch (error) {
-    console.error("Error creating package:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error creating package",
-      error: error.message,
-    });
-  }
+      // Get the guide ID from the authenticated user
+      const userId = req.user.id;
+
+      // Validate required fields
+      if (!title || !description || !duration || !maxPeople || !locations || !price) {
+        return res.status(400).json({
+          success: false,
+          message: "Please provide all required fields",
+        });
+      }
+
+      // Check if a Guide record exists for this user
+      let guide = await prisma.guide.findUnique({
+        where: { userId: parseInt(userId) }
+      });
+
+      // If no Guide record exists, create one
+      if (!guide) {
+        console.log("Creating new Guide record for user:", userId);
+        guide = await prisma.guide.create({
+          data: {
+            userId: parseInt(userId),
+            name: req.user.name || "Guide",
+            email: req.user.email || "",
+            phoneNumber: "",
+            location: "",
+            specialization: "",
+            isVerified: false
+          }
+        });
+      }
+
+      // Handle image upload
+      let packageImage = null;
+      if (req.file) {
+        packageImage = `/uploads/packageImages/${req.file.filename}`;
+      }
+
+      // Handle locations - convert to array if string, then to JSON
+      let locationsArray;
+      if (typeof locations === 'string') {
+        // If it's a comma-separated string, split it
+        locationsArray = locations.split(',').map(loc => loc.trim());
+      } else if (Array.isArray(locations)) {
+        // If it's already an array, use it as is
+        locationsArray = locations;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Locations must be either a string or an array",
+        });
+      }
+
+      // Convert locations array to JSON string
+      const locationsJson = JSON.stringify(locationsArray);
+
+      // Create package in database
+      const newPackage = await prisma.package.create({
+        data: {
+          title,
+          description,
+          duration: parseInt(duration),
+          maxPeople: parseInt(maxPeople),
+          locations: locationsJson,
+          price: parseFloat(price),
+          image: packageImage,
+          guide: {
+            connect: { id: guide.id }
+          }
+        },
+      });
+
+      // Parse locations back to array for response
+      const responsePackage = {
+        ...newPackage,
+        locations: JSON.parse(newPackage.locations)
+      };
+
+      res.status(201).json({
+        success: true,
+        message: "Package created successfully",
+        data: responsePackage,
+      });
+    } catch (error) {
+      console.error("Error creating package:", error);
+      res.status(500).json({
+        success: false,
+        message: "Error creating package",
+        error: error.message,
+      });
+    }
+  });
 };
 
 // Get all packages
@@ -120,9 +150,28 @@ const getAllPackages = async (req, res) => {
       },
     });
 
+    // Parse locations JSON for each package with error handling
+    const packagesWithParsedLocations = packages.map(pkg => {
+      try {
+        // Try to parse the locations JSON
+        const parsedLocations = JSON.parse(pkg.locations);
+        return {
+          ...pkg,
+          locations: parsedLocations
+        };
+      } catch (parseError) {
+        console.error(`Error parsing locations for package ${pkg.id}:`, parseError);
+        // If parsing fails, return the original locations as a string
+        return {
+          ...pkg,
+          locations: pkg.locations
+        };
+      }
+    });
+
     res.status(200).json({
       success: true,
-      data: packages,
+      data: packagesWithParsedLocations,
     });
   } catch (error) {
     console.error("Error fetching packages:", error);
@@ -157,9 +206,15 @@ const getGuidePackages = async (req, res) => {
       },
     });
 
+    // Parse locations JSON for each package
+    const packagesWithParsedLocations = packages.map(pkg => ({
+      ...pkg,
+      locations: JSON.parse(pkg.locations)
+    }));
+
     res.status(200).json({
       success: true,
-      data: packages,
+      data: packagesWithParsedLocations,
     });
   } catch (error) {
     console.error("Error fetching guide packages:", error);
@@ -173,76 +228,92 @@ const getGuidePackages = async (req, res) => {
 
 // Update a package
 const updatePackage = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      title,
-      description,
-      duration,
-      maxPeople,
-      locations,
-      price,
-      image, // This will be a base64 string
-    } = req.body;
+  upload(req, res, async (err) => {
+    if (err) {
+      console.error("File upload error:", err);
+      return res.status(400).json({ error: "File upload failed" });
+    }
 
-    // Check if package exists and belongs to the guide
-    const existingPackage = await prisma.package.findFirst({
-      where: {
-        id: id,
-        guideId: req.user.id,
-      },
-    });
+    try {
+      const { id } = req.params;
+      const {
+        title,
+        description,
+        duration,
+        maxPeople,
+        locations,
+        price,
+      } = req.body;
 
-    if (!existingPackage) {
-      return res.status(404).json({
+      // Check if package exists and belongs to the guide
+      const existingPackage = await prisma.package.findFirst({
+        where: {
+          id: id,
+          guideId: req.user.id,
+        },
+      });
+
+      if (!existingPackage) {
+        return res.status(404).json({
+          success: false,
+          message: "Package not found or unauthorized",
+        });
+      }
+
+      // Handle image upload
+      let packageImage = existingPackage.image;
+      if (req.file) {
+        // Delete old image if it exists
+        if (existingPackage.image) {
+          const oldImagePath = path.join(__dirname, '..', existingPackage.image);
+          try {
+            fs.unlinkSync(oldImagePath);
+          } catch (error) {
+            console.error("Error deleting old image:", error);
+          }
+        }
+        packageImage = `/uploads/packageImages/${req.file.filename}`;
+      }
+
+      // Convert locations string to array if it's a string
+      const locationArray = typeof locations === 'string'
+        ? locations.split(',').map(loc => loc.trim())
+        : locations;
+
+      // Update package
+      const updatedPackage = await prisma.package.update({
+        where: { id: id },
+        data: {
+          title: title || existingPackage.title,
+          description: description || existingPackage.description,
+          duration: duration ? parseInt(duration) : existingPackage.duration,
+          maxPeople: maxPeople ? parseInt(maxPeople) : existingPackage.maxPeople,
+          locations: locationArray || existingPackage.locations,
+          price: price ? parseFloat(price) : existingPackage.price,
+          image: packageImage,
+        },
+      });
+
+      // Parse locations for response
+      const responsePackage = {
+        ...updatedPackage,
+        locations: JSON.parse(updatedPackage.locations)
+      };
+
+      res.status(200).json({
+        success: true,
+        message: "Package updated successfully",
+        data: responsePackage,
+      });
+    } catch (error) {
+      console.error("Error updating package:", error);
+      res.status(500).json({
         success: false,
-        message: "Package not found or unauthorized",
+        message: "Error updating package",
+        error: error.message,
       });
     }
-
-    // Handle base64 image if provided
-    let packageImage = existingPackage.image;
-    if (image) {
-      packageImage = await saveBase64Image(image, 'packageImages');
-      // Delete old image if it exists and new image was successfully saved
-      if (packageImage && existingPackage.image) {
-        const oldImagePath = path.join(__dirname, '..', 'uploads', existingPackage.image);
-        await fs.unlink(oldImagePath).catch(() => {});
-      }
-    }
-
-    // Convert locations string to array if it's a string
-    const locationArray = typeof locations === 'string'
-      ? locations.split(',').map(loc => loc.trim())
-      : locations;
-
-    // Update package
-    const updatedPackage = await prisma.package.update({
-      where: { id: id },
-      data: {
-        title: title || existingPackage.title,
-        description: description || existingPackage.description,
-        duration: duration ? parseInt(duration) : existingPackage.duration,
-        maxPeople: maxPeople ? parseInt(maxPeople) : existingPackage.maxPeople,
-        locations: locationArray || existingPackage.locations,
-        price: price ? parseFloat(price) : existingPackage.price,
-        image: packageImage,
-      },
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Package updated successfully",
-      data: updatedPackage,
-    });
-  } catch (error) {
-    console.error("Error updating package:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error updating package",
-      error: error.message,
-    });
-  }
+  });
 };
 
 // Delete a package
@@ -267,8 +338,12 @@ const deletePackage = async (req, res) => {
 
     // Delete the package image if it exists
     if (existingPackage.image) {
-      const imagePath = path.join(__dirname, '..', 'uploads', existingPackage.image);
-      await fs.unlink(imagePath).catch(() => {});
+      const imagePath = path.join(__dirname, '..', existingPackage.image);
+      try {
+        fs.unlinkSync(imagePath);
+      } catch (error) {
+        console.error("Error deleting package image:", error);
+      }
     }
 
     // Delete package

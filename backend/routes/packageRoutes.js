@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { authenticateToken } = require("../middlewares/authMiddleware");
+const { authenticateUser } = require("../middlewares/authMiddleware");
 const {
   createPackage,
   getAllPackages,
@@ -10,18 +10,18 @@ const {
 } = require("../controllers/packageController");
 
 // Create a new package (requires authentication)
-router.post("/create", authenticateToken, createPackage);
+router.post("/create", authenticateUser(), createPackage);
 
 // Get all packages
 router.get("/all", getAllPackages);
 
 // Get packages for the authenticated guide
-router.get("/guide", authenticateToken, getGuidePackages);
+router.get("/guide", authenticateUser(), getGuidePackages);
 
 // Update a package
-router.put("/:id", authenticateToken, updatePackage);
+router.put("/:id", authenticateUser(), updatePackage);
 
 // Delete a package
-router.delete("/:id", authenticateToken, deletePackage);
+router.delete("/:id", authenticateUser(), deletePackage);
 
 module.exports = router; 

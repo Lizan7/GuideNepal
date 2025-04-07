@@ -48,6 +48,7 @@ model Guide {
   bookings          UserBooking[]
   ratings           Rating[]      // Relation to ratings for this guide
   charge            Int
+  packages          Package[]     // Relation to packages created by this guide
 }
 
 enum Role {
@@ -151,16 +152,16 @@ model Rating {
 }
 
 model Package {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          Int      @id @default(autoincrement())
   title       String
-  description String
+  description String   @db.Text
   duration    Int
   maxPeople   Int
-  locations   String[]
+  locations   String   @db.Text  // Store as JSON string
   price       Float
   image       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   guide       Guide    @relation(fields: [guideId], references: [id])
-  guideId     String   @db.ObjectId
+  guideId     Int
 }
