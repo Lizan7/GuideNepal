@@ -340,7 +340,7 @@ const UserBooking = () => {
       <Modal
         visible={showBookingDetails}
         transparent={true}
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setShowBookingDetails(false)}
       >
         <TouchableOpacity 

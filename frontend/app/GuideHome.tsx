@@ -16,6 +16,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import API_BASE_URL from "@/config";
+import BottomNavigation from "@/components/BottomNavigation";
 
 interface Booking {
   id: string;
@@ -404,39 +405,10 @@ const GuideHome = () => {
         )}
       </View>
 
-      {/* Bottom Navigation */}
-      <View className="bg-white flex-row justify-around border-t border-gray-200 p-4">
-        <TouchableOpacity
-          onPress={() => router.replace("/GuideHome")}
-          className="items-center"
-        >
-          <Ionicons name="home" size={24} color="#3B82F6" />
-          <Text className="text-blue-600 text-sm mt-1">Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.replace("/GuideChat")}
-          className="items-center"
-        >
-          <Ionicons name="chatbubble-outline" size={24} color="#94A3B8" />
-          <Text className="text-gray-400 text-sm mt-1">Chat</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.replace("/GuidePackage")}
-          className="items-center"
-        >
-          <Ionicons name="briefcase-outline" size={24} color="#94A3B8" />
-          <Text className="text-gray-400 text-sm mt-1">Packages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.replace("/GuideProfile")}
-          className="items-center"
-        >
-          <Ionicons name="person-outline" size={24} color="#94A3B8" />
-          <Text className="text-gray-400 text-sm mt-1">Profile</Text>
-        </TouchableOpacity>
-      </View>
-
       {renderBookingDetails()}
+      
+      {/* Bottom Navigation */}
+      <BottomNavigation />
     </View>
   );
 };

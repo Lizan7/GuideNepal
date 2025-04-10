@@ -6,6 +6,9 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  ScrollView,
+  StatusBar,
+  SafeAreaView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -13,6 +16,7 @@ import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import API_BASE_URL from "@/config";
+import BottomNavigation from "@/components/BottomNavigation";
 
 const GuideProfile = () => {
   const router = useRouter();
@@ -131,113 +135,185 @@ const GuideProfile = () => {
 
   if (loading) {
     return (
-      <View className="flex-1 justify-center items-center">
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text className="text-gray-500 mt-4">Loading guide details...</Text>
-      </View>
+      <SafeAreaView className="flex-1 bg-white">
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#000000" />
+          <Text className="text-gray-600 mt-4">Loading profile...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <View className="flex-1 justify-center items-center">
-        <Text className="text-red-500 text-lg">{error}</Text>
-        <TouchableOpacity
-          onPress={fetchGuideDetails}
-          className="bg-blue-500 px-4 py-2 rounded mt-4"
-        >
-          <Text className="text-white">Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView className="flex-1 bg-white">
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <View className="flex-1 justify-center items-center p-6">
+          <Ionicons name="alert-circle-outline" size={64} color="#000000" />
+          <Text className="text-gray-800 text-lg mt-4 text-center">{error}</Text>
+          <TouchableOpacity
+            onPress={fetchGuideDetails}
+            className="bg-black px-6 py-3 rounded-full mt-6"
+          >
+            <Text className="text-white">Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View className="flex flex-col h-full bg-gray-100">
+    <SafeAreaView className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
       {/* Header */}
-      <View className="bg-blue-500 p-4 shadow-sm flex-row items-center">
-        <TouchableOpacity onPress={() => router.replace("/GuideHome")}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+      <View className="flex-row items-center justify-between p-4 border-b border-gray-100">
+        <TouchableOpacity 
+          onPress={() => router.replace("/GuideHome")}
+          className="p-2"
+        >
+          <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
-        <Text className="text-white text-lg font-bold ml-4">My Profile</Text>
+        <Text className="text-xl font-bold">Profile</Text>
+        <TouchableOpacity 
+          onPress={() => router.push("./guideRegister")}
+          className="p-2"
+        >
+          <Ionicons name="create-outline" size={24} color="#000000" />
+        </TouchableOpacity>
       </View>
 
-      {/* Profile Section */}
-      <View className="bg-white p-6 w-full max-w-md mx-auto rounded-lg">
-        <View className="items-center">
-          <TouchableOpacity onPress={handleImageChange}>
+      <ScrollView className="flex-1">
+        {/* Profile Header */}
+        <View className="items-center py-6">
+          <View className="relative">
             <Image
               source={{
                 uri: profileImage || "https://via.placeholder.com/100",
               }}
-              className="w-24 h-24 rounded-full"
+              className="w-32 h-32 rounded-full"
               onError={(error) => {
                 console.error("Image loading error:", error.nativeEvent.error);
                 console.error("Failed to load image from URL:", profileImage);
                 setProfileImage("https://via.placeholder.com/100");
               }}
             />
-          </TouchableOpacity>
-          <Text className="text-xl font-bold mt-4">
+           
+          </View>
+          <Text className="text-2xl font-bold mt-4">
             {safeField(guideData?.name || guideData?.user?.name) || "Not Set"}
           </Text>
+          <View className="mt-2 flex-row items-center">
+            <Ionicons 
+              name={guideData?.isVerified ? "checkmark-circle" : "time"} 
+              size={16} 
+              color={guideData?.isVerified ? "#10B981" : "#F59E0B"} 
+            />
+            <Text className={`ml-1 text-sm ${guideData?.isVerified ? "text-green-600" : "text-yellow-600"}`}>
+              {guideData?.isVerified ? "Verified Guide" : "Pending Verification"}
+            </Text>
+          </View>
         </View>
 
         {/* Profile Details */}
-        <View className="mt-8 space-y-4 gap-10">
-          <View className="flex flex-row justify-between">
-            <Text className="text-xl text-gray-500">Email</Text>
-            <Text className="text-gray-500 text-base">
-              {safeField(guideData?.email || guideData?.user?.email) || "Not Set"}
-            </Text>
+        <View className="px-4">
+          <View className="mb-6">
+            <Text className="text-sm text-gray-500 mb-2">Email</Text>
+            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
+              <Ionicons name="mail-outline" size={20} color="#6B7280" />
+              <Text className="ml-3 text-gray-800">
+                {safeField(guideData?.email || guideData?.user?.email) || "Not Set"}
+              </Text>
+            </View>
           </View>
-          <View className="flex flex-row justify-between">
-            <Text className="text-xl text-gray-500">Contact</Text>
-            <Text className="text-gray-500 text-base">
-              {safeField(guideData?.phoneNumber) || "Not Set"}
-            </Text>
+          
+          <View className="mb-6">
+            <Text className="text-sm text-gray-500 mb-2">Contact</Text>
+            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
+              <Ionicons name="call-outline" size={20} color="#6B7280" />
+              <Text className="ml-3 text-gray-800">
+                {safeField(guideData?.phoneNumber) || "Not Set"}
+              </Text>
+            </View>
           </View>
-          <View className="flex flex-row justify-between">
-            <Text className="text-xl text-gray-500">Specialization</Text>
-            <Text className="text-gray-500 text-base">
-              {safeField(guideData?.specialization) || "Not Set"}
-            </Text>
+          
+          <View className="mb-6">
+            <Text className="text-sm text-gray-500 mb-2">Specialization</Text>
+            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
+              <Ionicons name="compass-outline" size={20} color="#6B7280" />
+              <Text className="ml-3 text-gray-800">
+                {safeField(guideData?.specialization) || "Not Set"}
+              </Text>
+            </View>
           </View>
-          <View className="flex flex-row justify-between">
-            <Text className="text-xl text-gray-500">Location</Text>
-            <Text className="text-gray-500 text-base">
-              {safeField(guideData?.location) || "Not Set"}
-            </Text>
+          
+          <View className="mb-6">
+            <Text className="text-sm text-gray-500 mb-2">Location</Text>
+            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
+              <Ionicons name="location-outline" size={20} color="#6B7280" />
+              <Text className="ml-3 text-gray-800">
+                {safeField(guideData?.location) || "Not Set"}
+              </Text>
+            </View>
           </View>
-          <View className="flex flex-row justify-between">
-            <Text className="text-xl text-gray-500">Charge per Day</Text>
-            <Text className="text-gray-500 text-base">
-              {safeField(guideData?.charge) ? `Rs. ${guideData.charge}` : "Not Set"}
-            </Text>
-          </View>
-          <View className="flex flex-row justify-between">
-            <Text className="text-xl text-gray-500">Status</Text>
-            <Text
-              className={`text-base font-bold ${
-                guideData?.isVerified ? "text-green-500" : "text-yellow-500"
-              }`}
-            >
-              {guideData?.isVerified ? "Verified" : "Pending Verification"}
-            </Text>
+          
+          <View className="mb-6">
+            <Text className="text-sm text-gray-500 mb-2">Charge per Day</Text>
+            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
+              <Ionicons name="cash-outline" size={20} color="#6B7280" />
+              <Text className="ml-3 text-gray-800">
+                {safeField(guideData?.charge) ? `Rs. ${guideData.charge}` : "Not Set"}
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Edit or Verify Button */}
+        {/* Complete Profile Button */}
+        {!guideData?.name && (
+          <View className="px-4 mb-8">
+            <TouchableOpacity
+              className="bg-black py-4 rounded-lg"
+              onPress={() => router.push("./guideRegister")}
+            >
+              <Text className="text-white text-center font-medium">Complete Your Profile</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </ScrollView>
+      
+      {/* Bottom Navigation */}
+      <View className="flex-row justify-around py-3 border-t border-gray-100">
         <TouchableOpacity
-          className="bg-blue-500 px-6 py-3 rounded-lg mt-14 w-fit"
-          onPress={() => router.push("./guideRegister")}
+          onPress={() => router.replace("/GuideHome")}
+          className="items-center"
         >
-          <Text className="text-white font-semibold text-center">
-            {guideData?.name ? "Edit Profile" : "Complete Profile"}
-          </Text>
+          <Ionicons name="home-outline" size={24} color="#6B7280" />
+          <Text className="text-xs text-gray-500 mt-1">Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.replace("/GuideChat")}
+          className="items-center"
+        >
+          <Ionicons name="chatbubble-outline" size={24} color="#6B7280" />
+          <Text className="text-xs text-gray-500 mt-1">Chat</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.replace("/GuidePackage")}
+          className="items-center"
+        >
+          <Ionicons name="briefcase-outline" size={24} color="#6B7280" />
+          <Text className="text-xs text-gray-500 mt-1">Packages</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.replace("/GuideProfile")}
+          className="items-center"
+        >
+          <Ionicons name="person" size={24} color="#000000" />
+          <Text className="text-xs text-black mt-1">Profile</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

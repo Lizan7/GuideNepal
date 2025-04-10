@@ -9,12 +9,15 @@ import {
   Alert,
   ListRenderItem,
   ImageSourcePropType,
+  StatusBar,
+  SafeAreaView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import API_BASE_URL from "../config";
+import BottomNavigation from "@/components/BottomNavigation";
 
 interface Friend {
   id: number;
@@ -116,11 +119,12 @@ const GuideChat: React.FC = () => {
       className="items-center mx-2 px-2"
       onPress={() => navigateToChat(item.id.toString(), item.name || "User")}
     >
-      <Image
-        source={require("../assets/images/profile.jpg")}
-        className="w-16 h-16 rounded-full"
-      />
-      <Text className="text-sm mt-1 text-center" numberOfLines={1}>
+      <View className="w-16 h-16 rounded-full bg-blue-100 items-center justify-center border-2 border-blue-200">
+        <Text className="text-blue-600 font-bold text-lg">
+          {item.name ? item.name.charAt(0).toUpperCase() : "U"}
+        </Text>
+      </View>
+      <Text className="text-sm mt-1 text-center font-medium" numberOfLines={1}>
         {item.name || "User"}
       </Text>
     </TouchableOpacity>
@@ -128,48 +132,103 @@ const GuideChat: React.FC = () => {
 
   const renderConversationItem: ListRenderItem<Conversation> = ({ item }) => (
     <TouchableOpacity
-      className="flex-row items-center p-4 border-b border-gray-200"
+      className="flex-row items-center p-4 border-b border-gray-100"
       onPress={() => navigateToChat(item.id, item.name)}
     >
-      <Image source={item.image} className="w-16 h-16 rounded-full" />
-      <View className="flex-1 ml-4">
-        <Text className="text-base font-bold">{item.name}</Text>
-        <Text className="text-sm text-gray-600">{item.lastMessage}</Text>
+      <View className="w-14 h-14 rounded-full bg-blue-100 items-center justify-center border-2 border-blue-200">
+        <Text className="text-blue-600 font-bold text-lg">
+          {item.name.charAt(0).toUpperCase()}
+        </Text>
       </View>
-      <Text className="text-xs text-gray-500">{item.time}</Text>
+      <View className="flex-1 ml-4">
+        <Text className="text-base font-bold text-gray-800">{item.name}</Text>
+        <Text className="text-sm text-gray-500 mt-1">{item.lastMessage}</Text>
+      </View>
+      <View className="items-end">
+        <Text className="text-xs text-gray-400">{item.time}</Text>
+        <View className="w-2 h-2 rounded-full bg-blue-500 mt-2"></View>
+      </View>
     </TouchableOpacity>
   );
 
-  return (
-    <View className="flex-1 bg-white">
-      {/* Header */}
-      <View className="px-6 py-4 bg-gray-200 flex-row items-center justify-between">
-        <View className="flex-row gap-3">
-          <TouchableOpacity onPress={() => router.replace("/UserHome")}>
-            <Ionicons name="chevron-back-outline" size={24} color="black" />
-          </TouchableOpacity>
-          <Text className="text-lg font-bold text-gray-800">Chats</Text>
+  const renderChatDetails = () => {
+    if (loading) {
+      return (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text className="text-lg text-gray-600 mt-3">
+            Loading conversations...
+          </Text>
         </View>
+      );
+    } else if (conversations.length === 0) {
+      return (
+        <View className="flex-1 items-center justify-center p-4">
+          <View className="w-24 h-24 rounded-full bg-blue-100 items-center justify-center mb-4">
+            <Ionicons name="chatbubble-ellipses-outline" size={48} color="#3B82F6" />
+          </View>
+          <Text className="text-xl font-bold text-gray-700 mt-2">
+            No conversations yet
+          </Text>
+          <Text className="text-gray-500 mt-1 text-center px-6">
+            Add friends to start chatting with them
+          </Text>
+          <TouchableOpacity
+            className="mt-6 bg-blue-500 py-3 px-6 rounded-full flex-row items-center"
+            onPress={() => router.push("/FindFriends")}
+          >
+            <Ionicons name="person-add-outline" size={20} color="white" />
+            <Text className="text-white font-bold text-lg ml-2">Find Friends</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    } else {
+      return (
+        <FlatList
+          data={conversations}
+          keyExtractor={(item) => item.id}
+          renderItem={renderConversationItem}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 20 }}
+        />
+      );
+    }
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+      {/* Header */}
+      <View className="flex-row items-center p-4 border-b border-gray-100">
+        <TouchableOpacity 
+          onPress={() => router.replace("/GuideHome")}
+          className="p-2"
+        >
+          <Ionicons name="arrow-back" size={24} color="#000000" />
+        </TouchableOpacity>
+        <Text className="text-xl font-bold text-center">Chats</Text>
+        
       </View>
 
       {/* Friends row */}
-      <View className="py-3 border-b border-gray-200">
-        <Text className="px-6 pb-2 text-gray-700 font-medium">Friends</Text>
+      <View className="py-4 border-b border-gray-100">
+        <Text className="px-4 pb-2 text-gray-700 font-medium text-base">Friends</Text>
         <FlatList
           horizontal
           data={friends}
           keyExtractor={(item) => item.id.toString()}
           renderItem={renderFriendItem}
           ListEmptyComponent={() => (
-            <View className="flex-row items-center px-6">
+            <View className="flex-row items-center px-4">
               <TouchableOpacity
                 className="items-center mx-2"
                 onPress={() => router.push("/FindFriends")}
               >
-                <View className="w-16 h-16 rounded-full bg-gray-200 items-center justify-center">
-                  <Ionicons name="add" size={30} color="gray" />
+                <View className="w-16 h-16 rounded-full bg-blue-100 items-center justify-center border-2 border-blue-200">
+                  <Ionicons name="add" size={30} color="#3B82F6" />
                 </View>
-                <Text className="text-sm mt-1 text-center">Add Friends</Text>
+                <Text className="text-sm mt-1 text-center font-medium">Add Friends</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -180,77 +239,15 @@ const GuideChat: React.FC = () => {
 
       {/* Conversations */}
       <View className="flex-1">
-        <Text className="px-6 py-3 text-gray-700 font-medium">
+        <Text className="px-4 py-3 text-gray-700 font-medium text-base">
           Recent Chats
         </Text>
-
-        {loading ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="large" color="#d63384" />
-            <Text className="text-lg text-gray-600 mt-3">
-              Loading conversations...
-            </Text>
-          </View>
-        ) : conversations.length === 0 ? (
-          <View className="flex-1 items-center justify-center p-4">
-            <Image
-              source={require("../assets/images/no-booking.png")}
-              className="w-64 h-60"
-            />
-            <Text className="text-xl font-bold text-gray-700 mt-2">
-              No conversations yet
-            </Text>
-            <Text className="text-gray-500 mt-1 text-lg text-center">
-              Add friends to start chatting!
-            </Text>
-            <TouchableOpacity
-              className="mt-6 bg-purple-600 py-3 px-6 rounded-full"
-              onPress={() => router.push("/FindFriends")}
-            >
-              <Text className="text-white font-bold text-lg">Find Friends</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <FlatList
-            data={conversations}
-            keyExtractor={(item) => item.id}
-            renderItem={renderConversationItem}
-          />
-        )}
+        {renderChatDetails()}
       </View>
 
       {/* Bottom Navigation */}
-      <View className="bg-white flex-row justify-around border-t border-gray-200 p-4">
-        <TouchableOpacity
-          onPress={() => router.replace("/GuideHome")}
-          className="items-center"
-        >
-          <Ionicons name="home" size={24} color="#3B82F6" />
-          <Text className="text-blue-600 text-sm mt-1">Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.replace("/GuideChat")}
-          className="items-center"
-        >
-          <Ionicons name="chatbubble-outline" size={24} color="#94A3B8" />
-          <Text className="text-gray-400 text-sm mt-1">Chat</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.replace("/GuidePackage")}
-          className="items-center"
-        >
-          <Ionicons name="briefcase-outline" size={24} color="#94A3B8" />
-          <Text className="text-gray-400 text-sm mt-1">Packages</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => router.replace("/GuideProfile")}
-          className="items-center"
-        >
-          <Ionicons name="person-outline" size={24} color="#94A3B8" />
-          <Text className="text-gray-400 text-sm mt-1">Profile</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+      <BottomNavigation />
+    </SafeAreaView>
   );
 };
 

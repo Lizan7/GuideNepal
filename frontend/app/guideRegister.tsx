@@ -8,6 +8,8 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  StatusBar,
+  SafeAreaView,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import API_BASE_URL from "@/config";
@@ -15,7 +17,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from "expo-linear-gradient";
 
 interface GuideRegisterProps {}
 
@@ -164,121 +166,179 @@ const GuideRegister: React.FC<GuideRegisterProps> = () => {
 
   if (loading && !isEditing) {
     return (
-      <View className="flex-1 justify-center items-center">
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text className="text-gray-500 mt-4">Loading guide details...</Text>
-      </View>
+      <SafeAreaView className="flex-1 bg-white">
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" color="#3B82F6" />
+          <Text className="text-gray-600 mt-4">Loading guide details...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View className="flex-1">
-      <StatusBar style="light" backgroundColor="#3B82F6" />
-      <View className="bg-[#3B82F6]">
-        <View className="flex-row items-center p-4 gap-4">
-          <TouchableOpacity onPress={() => router.replace("/GuideProfile")}>
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text className="font-bold text-lg text-white">
-            {isEditing ? "Edit Guide Details" : "Guide Verification"}
-          </Text>
-        </View>
+    <SafeAreaView className="flex-1 bg-white">
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+      {/* Header */}
+      <View className="flex-row items-center justify-between p-4 border-b border-gray-100">
+        <TouchableOpacity 
+          onPress={() => router.replace("/GuideProfile")}
+          className="p-2"
+        >
+          <Ionicons name="arrow-back" size={24} color="#000000" />
+        </TouchableOpacity>
+        <Text className="text-xl font-bold">{isEditing ? "Edit Guide Details" : "Guide Verification"}</Text>
+        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, backgroundColor: "#fff" }}
+        className="flex-1 px-4 pt-6"
+        showsVerticalScrollIndicator={false}
       >
-        <Text className="text-gray-700 mb-2 px-4 mt-2">You can register as a guide by filling the following details</Text>
-        <View className="p-4">
+        <View className="bg-white rounded-2xl shadow-sm p-4 mb-6">
+          <Text className="text-gray-700 text-base mb-4">
+            {isEditing 
+              ? "Update your guide profile information below" 
+              : "Complete your guide profile to start accepting bookings"}
+          </Text>
+          
           {/* Phone Number */}
-          <Text className="text-gray-700 mb-2">Phone Number *</Text>
-          <TextInput
-            className="w-full p-3 border border-gray-300 rounded-lg mb-4"
-            placeholder="Enter your contact details"
-            keyboardType="phone-pad"
-            placeholderTextColor="gray"
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-          />
+          <View className="mb-5">
+            <Text className="text-gray-700 font-medium mb-2">Phone Number <Text className="text-red-500">*</Text></Text>
+            <View className="flex-row items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50">
+              <Ionicons name="call-outline" size={20} color="#6B7280" />
+              <TextInput
+                className="flex-1 ml-3 text-gray-800"
+                placeholder="Enter your contact details"
+                keyboardType="phone-pad"
+                placeholderTextColor="#9CA3AF"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+              />
+            </View>
+          </View>
 
           {/* Location */}
-          <Text className="text-gray-700 mb-2">Location *</Text>
-          <TextInput
-            className="w-full p-3 border border-gray-300 rounded-lg mb-4"
-            placeholder="Enter your address"
-            placeholderTextColor="gray"
-            value={location}
-            onChangeText={setLocation}
-          />
+          <View className="mb-5">
+            <Text className="text-gray-700 font-medium mb-2">Location <Text className="text-red-500">*</Text></Text>
+            <View className="flex-row items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50">
+              <Ionicons name="location-outline" size={20} color="#6B7280" />
+              <TextInput
+                className="flex-1 ml-3 text-gray-800"
+                placeholder="Enter your address"
+                placeholderTextColor="#9CA3AF"
+                value={location}
+                onChangeText={setLocation}
+              />
+            </View>
+          </View>
 
           {/* Specialization */}
-          <Text className="text-gray-700 mb-2">Specialization *</Text>
-          <TextInput
-            className="w-full p-3 border border-gray-300 rounded-lg mb-4"
-            placeholder="Enter specialities"
-            placeholderTextColor="gray"
-            value={specialization}
-            onChangeText={setSpecialization}
-          />
+          <View className="mb-5">
+            <Text className="text-gray-700 font-medium mb-2">Specialization <Text className="text-red-500">*</Text></Text>
+            <View className="flex-row items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50">
+              <Ionicons name="compass-outline" size={20} color="#6B7280" />
+              <TextInput
+                className="flex-1 ml-3 text-gray-800"
+                placeholder="Enter specialities"
+                placeholderTextColor="#9CA3AF"
+                value={specialization}
+                onChangeText={setSpecialization}
+              />
+            </View>
+          </View>
 
           {/* Charge */}
-          <Text className="text-gray-700 mb-2">Daily Rate (Rs.) *</Text>
-          <TextInput
-            className="w-full p-3 border border-gray-300 rounded-lg mb-4"
-            placeholder="Enter your daily rate"
-            keyboardType="numeric"
-            placeholderTextColor="gray"
-            value={charge}
-            onChangeText={setCharge}
-          />
-
-          {/* Profile Image */}
-          <Text className="text-gray-700 mb-2">Profile Image {!isEditing ? '*' : ''}</Text>
-          <TouchableOpacity
-            onPress={() => pickImage(setProfileImage)}
-            className="w-full p-4 border border-gray-300 rounded-lg mb-4 justify-center"
-          >
-            {profileImage ? (
-              <Image
-                source={{ uri: profileImage }}
-                className="w-24 h-24 rounded-lg"
+          <View className="mb-5">
+            <Text className="text-gray-700 font-medium mb-2">Daily Rate (Rs.) <Text className="text-red-500">*</Text></Text>
+            <View className="flex-row items-center border border-gray-200 rounded-xl px-4 py-3 bg-gray-50">
+              <Ionicons name="cash-outline" size={20} color="#6B7280" />
+              <TextInput
+                className="flex-1 ml-3 text-gray-800"
+                placeholder="Enter your daily rate"
+                keyboardType="numeric"
+                placeholderTextColor="#9CA3AF"
+                value={charge}
+                onChangeText={setCharge}
               />
-            ) : (
-              <Text className="text-gray-500">Upload Profile Image</Text>
-            )}
-          </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Image Upload Section */}
+        <View className="bg-white rounded-2xl shadow-sm p-4 mb-6">
+          <Text className="text-gray-700 text-base mb-4">Upload Images</Text>
+          
+          {/* Profile Image */}
+          <View className="mb-5">
+            <Text className="text-gray-700 font-medium mb-2">
+              Profile Image {!isEditing && <Text className="text-red-500">*</Text>}
+            </Text>
+            <TouchableOpacity
+              onPress={() => pickImage(setProfileImage)}
+              className="border border-gray-200 rounded-xl p-4 items-center justify-center bg-gray-50"
+            >
+              {profileImage ? (
+                <Image
+                  source={{ uri: profileImage }}
+                  className="w-32 h-32 rounded-full"
+                />
+              ) : (
+                <View className="items-center">
+                  <View className="bg-blue-100 p-4 rounded-full mb-2">
+                    <Ionicons name="person-outline" size={32} color="#3B82F6" />
+                  </View>
+                  <Text className="text-gray-500">Upload Profile Image</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
 
           {/* Verification Image */}
-          <Text className="text-gray-700 mb-2">Verification Image {!isEditing ? '*' : ''}</Text>
-          <TouchableOpacity
-            onPress={() => pickImage(setVerificationImage)}
-            className="w-full p-4 border border-gray-300 rounded-lg mb-4 justify-center"
-          >
-            {verificationImage ? (
-              <Image
-                source={{ uri: verificationImage }}
-                className="w-24 h-24 rounded-lg"
-              />
-            ) : (
-              <Text className="text-gray-500">Upload Verification Image</Text>
-            )}
-          </TouchableOpacity>
+          <View className="mb-5">
+            <Text className="text-gray-700 font-medium mb-2">
+              Verification Image {!isEditing && <Text className="text-red-500">*</Text>}
+            </Text>
+            <TouchableOpacity
+              onPress={() => pickImage(setVerificationImage)}
+              className="border border-gray-200 rounded-xl p-4 items-center justify-center bg-gray-50"
+            >
+              {verificationImage ? (
+                <Image
+                  source={{ uri: verificationImage }}
+                  className="w-32 h-32 rounded-lg"
+                />
+              ) : (
+                <View className="items-center">
+                  <View className="bg-blue-100 p-4 rounded-full mb-2">
+                    <Ionicons name="id-card-outline" size={32} color="#3B82F6" />
+                  </View>
+                  <Text className="text-gray-500">Upload Verification Image</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity
-            onPress={sendRequest}
-            className={`w-full p-4 rounded-lg items-center mt-5 ${
-              isFormValid() ? 'bg-blue-500' : 'bg-gray-400'
-            }`}
-            disabled={!isFormValid() || loading}
-          >
+        {/* Submit Button */}
+        <TouchableOpacity
+          onPress={sendRequest}
+          disabled={!isFormValid() || loading}
+          className={`w-full py-4 rounded-xl items-center mb-8 ${
+            isFormValid() ? 'bg-blue-500' : 'bg-gray-300'
+          }`}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
             <Text className="text-white text-lg font-bold">
               {isEditing ? "Update Details" : "Submit for Verification"}
             </Text>
-          </TouchableOpacity>
-        </View>
+          )}
+        </TouchableOpacity>
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 };
 
