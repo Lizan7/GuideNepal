@@ -10,7 +10,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "Lizan@123";
 const register = async (req, res) => {
     const { name, email, password, role } = req.body;
     console.log("Registering user with:", { name, email, password, role });
-    if (!name?.trim() || !email?.trim() || !password || !["USER", "GUIDE", "HOTEL"].includes(role)) {
+    if (!name?.trim() || !email?.trim() || !password || !["USER", "GUIDE", "HOTEL", "ADMIN"].includes(role)) {
         return res.status(400).json({ success: false, error: "Invalid input or role" });
     }
 
