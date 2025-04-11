@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import axios from "axios";
 import API_BASE_URL from "@/config";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface Guide {
   id: string;
@@ -20,11 +21,13 @@ interface Guide {
   email: string;
   specialization: string;
   profileImage: string;
+  verificationImage: string;
   verified: boolean;
   user: {
     name: string;
     email: string;
   };
+  isVerified: boolean;
 }
 
 interface Hotel {
@@ -32,9 +35,11 @@ interface Hotel {
   name: string;
   location: string;
   hotelProfile: string;
+  certificate: string;
   verified: boolean;
   totalRooms: number;
   price: number;
+  isVerified: boolean;
 }
 
 // Add a union type for the list items
@@ -47,6 +52,7 @@ const Admin = () => {
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState("guides"); // "guides" or "hotels"
+  const [imageModalVisible, setImageModalVisible] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -55,13 +61,29 @@ const Admin = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      
+      // Get the authentication token from AsyncStorage
+      const token = await AsyncStorage.getItem("token");
+      
+      if (!token) {
+        Alert.alert("Error", "Authentication token not found. Please log in again.");
+        router.replace("/LoginScreen");
+        return;
+      }
+      
+      // Set up the authorization header
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      };
 
       console.log("🔹 Fetching guides data...");
-      const guidesResponse = await axios.get(`${API_BASE_URL}/guides/all`);
+      const guidesResponse = await axios.get(`${API_BASE_URL}/guides/all`, config);
       console.log("🔹 Guides Response:", guidesResponse.data);
 
       console.log("🔹 Fetching hotels data...");
-      const hotelsResponse = await axios.get(`${API_BASE_URL}/hotels/all`);
+      const hotelsResponse = await axios.get(`${API_BASE_URL}/hotels/all`, config);
       console.log("🔹 Hotels Response:", hotelsResponse.data);
 
       // Check if the responses have the expected data structure
@@ -90,100 +112,168 @@ const Admin = () => {
 
   const handleVerifyGuide = async (guideId: string) => {
     try {
-      await axios.post(`${API_BASE_URL}/admin/verify-guide/${guideId}`);
-      Alert.alert("Success", "Guide verified successfully");
-      fetchData(); // Refresh data
-    } catch (error) {
-      console.error("Error verifying guide:", error);
-      Alert.alert("Error", "Failed to verify guide");
+      const token = await AsyncStorage.getItem("token");
+      
+      if (!token) {
+        Alert.alert("Error", "Authentication token not found. Please log in again.");
+        router.replace("/LoginScreen");
+        return;
+      }
+      
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      };
+      
+      const response = await axios.post(`${API_BASE_URL}/admin/verify-guide/${guideId}`, {}, config);
+      
+      if (response.data.success) {
+        Alert.alert("Success", "Guide verified successfully");
+        // Update the local state to reflect the verification
+        setGuides(guides.map(guide => 
+          guide.id === guideId 
+            ? { ...guide, isVerified: true }
+            : guide
+        ));
+      }
+    } catch (error: any) {
+      console.error("Error verifying guide:", error.response?.data || error.message);
+      Alert.alert("Error", error.response?.data?.error || "Failed to verify guide");
     }
   };
 
   const handleVerifyHotel = async (hotelId: string) => {
     try {
-      await axios.post(`${API_BASE_URL}/admin/verify-hotel/${hotelId}`);
-      Alert.alert("Success", "Hotel verified successfully");
-      fetchData(); // Refresh data
-    } catch (error) {
-      console.error("Error verifying hotel:", error);
-      Alert.alert("Error", "Failed to verify hotel");
+      const token = await AsyncStorage.getItem("token");
+      
+      if (!token) {
+        Alert.alert("Error", "Authentication token not found. Please log in again.");
+        router.replace("/LoginScreen");
+        return;
+      }
+      
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      };
+      
+      const response = await axios.post(`${API_BASE_URL}/admin/verify-hotel/${hotelId}`, {}, config);
+      
+      if (response.data.success) {
+        Alert.alert("Success", "Hotel verified successfully");
+        // Update the local state to reflect the verification
+        setHotels(hotels.map(hotel => 
+          hotel.id === hotelId 
+            ? { ...hotel, isVerified: true }
+            : hotel
+        ));
+      }
+    } catch (error: any) {
+      console.error("Error verifying hotel:", error.response?.data || error.message);
+      Alert.alert("Error", error.response?.data?.error || "Failed to verify hotel");
     }
   };
 
   const renderGuideItem = ({ item }: { item: Guide }) => (
     <View className="bg-white p-4 m-2 rounded-lg shadow-sm">
-      <TouchableOpacity
-        onPress={() => setSelectedImage(item.profileImage)}
-        className="items-center"
-      >
+      <View className="flex-row items-center">
         <Image
           source={{
             uri: item.profileImage
-              ? `${API_BASE_URL}/guideVerification/${item.profileImage}`
+              ? `${API_BASE_URL.replace('/api', '')}/uploads/guides/${item.profileImage}`
               : "https://via.placeholder.com/150",
           }}
           className="w-20 h-20 rounded-lg"
         />
-      </TouchableOpacity>
-      <Text className="text-lg font-bold mt-2">{item.name}</Text>
-      <Text className="text-gray-600">{item.email}</Text>
-      <Text className="text-gray-600">{item.specialization}</Text>
-      <View className="flex-row justify-between items-center mt-2">
-        <Text
-          className={`${
-            item.verified ? "text-green-600" : "text-yellow-600"
-          } font-semibold`}
-        >
-          {item.verified ? "Verified" : "Pending Verification"}
-        </Text>
-        {!item.verified && (
-          <TouchableOpacity
-            onPress={() => handleVerifyGuide(item.id)}
-            className="bg-green-500 px-4 py-2 rounded-md"
-          >
-            <Text className="text-white font-semibold">Verify</Text>
-          </TouchableOpacity>
-        )}
+        <View className="ml-4 flex-1">
+          <Text className="text-lg font-bold">{item.name}</Text>
+          <Text className="text-gray-600">{item.email}</Text>
+          <Text className="text-gray-600">{item.specialization}</Text>
+          <View className="flex-row justify-between items-center mt-2">
+            <Text
+              className={`${
+                item.isVerified ? "text-green-600" : "text-yellow-600"
+              } font-semibold`}
+            >
+              {item.isVerified ? "Verified" : "Pending Verification"}
+            </Text>
+            {!item.isVerified && (
+              <TouchableOpacity
+                onPress={() => handleVerifyGuide(item.id)}
+                className="bg-green-500 px-4 py-2 rounded-md"
+              >
+                <Text className="text-white font-semibold">Verify</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
+      
+      {item.verificationImage && (
+        <TouchableOpacity
+          onPress={() => {
+            setSelectedImage(item.verificationImage);
+            setImageModalVisible(true);
+          }}
+          className="mt-3 bg-blue-500 py-2 px-4 rounded-md flex-row items-center justify-center"
+        >
+          <Ionicons name="eye" size={20} color="white" />
+          <Text className="text-white font-semibold ml-2">View Verification Image</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
   const renderHotelItem = ({ item }: { item: Hotel }) => (
     <View className="bg-white p-4 m-2 rounded-lg shadow-sm">
-      <TouchableOpacity
-        onPress={() => setSelectedImage(item.hotelProfile)}
-        className="items-center"
-      >
+      <View className="flex-row items-center">
         <Image
           source={{
             uri: item.hotelProfile
-              ? `${API_BASE_URL}/hotelUploads/${item.hotelProfile}`
+              ? `${API_BASE_URL.replace('/api', '')}/uploads/hotels/${item.hotelProfile}`
               : "https://via.placeholder.com/150",
           }}
           className="w-20 h-20 rounded-lg"
         />
-      </TouchableOpacity>
-      <Text className="text-lg font-bold mt-2">{item.name}</Text>
-      <Text className="text-gray-600">{item.location}</Text>
-      <Text className="text-gray-600">Total Rooms: {item.totalRooms}</Text>
-      <Text className="text-gray-600">Price: Rs. {item.price}</Text>
-      <View className="flex-row justify-between items-center mt-2">
-        <Text
-          className={`${
-            item.verified ? "text-green-600" : "text-yellow-600"
-          } font-semibold`}
-        >
-          {item.verified ? "Verified" : "Pending Verification"}
-        </Text>
-        {!item.verified && (
-          <TouchableOpacity
-            onPress={() => handleVerifyHotel(item.id)}
-            className="bg-green-500 px-4 py-2 rounded-md"
-          >
-            <Text className="text-white font-semibold">Verify</Text>
-          </TouchableOpacity>
-        )}
+        <View className="ml-4 flex-1">
+          <Text className="text-lg font-bold">{item.name}</Text>
+          <Text className="text-gray-600">{item.location}</Text>
+          <Text className="text-gray-600">Total Rooms: {item.totalRooms}</Text>
+          <Text className="text-gray-600">Price: Rs. {item.price}</Text>
+          <View className="flex-row justify-between items-center mt-2">
+            <Text
+              className={`${
+                item.isVerified ? "text-green-600" : "text-yellow-600"
+              } font-semibold`}
+            >
+              {item.isVerified ? "Verified" : "Pending Verification"}
+            </Text>
+            {!item.isVerified && (
+              <TouchableOpacity
+                onPress={() => handleVerifyHotel(item.id)}
+                className="bg-green-500 px-4 py-2 rounded-md"
+              >
+                <Text className="text-white font-semibold">Verify</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
       </View>
+      
+      {item.certificate && (
+        <TouchableOpacity
+          onPress={() => {
+            setSelectedImage(item.certificate);
+            setImageModalVisible(true);
+          }}
+          className="mt-3 bg-blue-500 py-2 px-4 rounded-md flex-row items-center justify-center"
+        >
+          <Ionicons name="eye" size={20} color="white" />
+          <Text className="text-white font-semibold ml-2">View Certificate</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -207,10 +297,7 @@ const Admin = () => {
   return (
     <View className="flex-1 bg-gray-100">
       {/* Header */}
-      <View className="bg-white p-4 flex-row items-center justify-between">
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="black" />
-        </TouchableOpacity>
+      <View className="bg-white p-4 flex-row items-center justify-center">
         <Text className="text-xl font-bold">Admin Dashboard</Text>
       </View>
 
@@ -256,22 +343,20 @@ const Admin = () => {
 
       {/* Image Modal */}
       <Modal
-        visible={!!selectedImage}
+        visible={imageModalVisible}
         transparent={true}
-        onRequestClose={() => setSelectedImage(null)}
+        onRequestClose={() => setImageModalVisible(false)}
       >
         <TouchableOpacity
           style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.9)" }}
-          onPress={() => setSelectedImage(null)}
+          onPress={() => setImageModalVisible(false)}
         >
           <View className="flex-1 justify-center items-center">
             <Image
               source={{
                 uri: selectedImage
-                  ? `${API_BASE_URL}/${
-                      selectedTab === "guides"
-                        ? "guideVerification"
-                        : "hotelUploads"
+                  ? `${API_BASE_URL.replace('/api', '')}/uploads/${
+                      selectedTab === "guides" ? "guides" : "hotels"
                     }/${selectedImage}`
                   : "",
               }}
@@ -280,7 +365,7 @@ const Admin = () => {
             />
             <TouchableOpacity
               className="absolute top-10 right-10"
-              onPress={() => setSelectedImage(null)}
+              onPress={() => setImageModalVisible(false)}
             >
               <Ionicons name="close-circle" size={40} color="white" />
             </TouchableOpacity>

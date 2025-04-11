@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import API_BASE_URL from "@/config";
+import UserNavigation from "@/components/UserNavigation";
 
 interface Guide {
   id: number;
@@ -168,330 +169,301 @@ const UserHome = () => {
           />
           <Text className="font-bold text-gray-800 text-xl">GuideNepal</Text>
           <View className="absolute right-4">
-          <TouchableOpacity onPress={() => router.replace("/UserMenu")}>
+            <TouchableOpacity onPress={() => router.replace("/UserMenu")}>
               <Ionicons name="menu-outline" size={24} color="black" />
             </TouchableOpacity>
           </View>
         </View>
 
-        <ScrollView
-          vertical
-          showsVerticalScrollIndicator={false}
-          className="mb-16"
-        >
-          {/* Main section */}
-          <View className="bg-lime-200 w-full px-4 h-60">
-            <View className="items-center mt-5">
-              <Text className="text-3xl font-extrabold text-slate-700 text-center">
-                Enchanting experiences,{" "}
-                <Text className="text-3xl text-pink-700">
-                  incredible guides
-                </Text>
-              </Text>
-            </View>
-            <View className="items-center mt-3">
-              <Text className="text-lg font-semibold text-center text-slate-700 px-8">
-                Hire guides and book hotels to make your experience worthy
-              </Text>
-            </View>
-            <View className="w-[300px] h-18 bg-white rounded-full mt-5 ml-8 flex-row items-center justify-center">
-              <Text className="px-6 py-3 text-lg font-medium text-zinc-500">
-                Where are you going?
-              </Text>
-              <TouchableOpacity
-                className="bg-pink-700 py-3 px-3 rounded-full justify-center"
-                onPress={() => router.replace("/UserSearch")}
-              >
-                <View className="flex-row items-center gap-3">
-                  <Ionicons name="search" size={15} color="white" />
-                  <Text className="text-white text-center font-semibold">
-                    Search
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Featured Guides */}
-          <View className="px-4 mt-1">
-            <Text className="text-2xl font-semibold text-gray-900 mt-6">
-              Popular Guides
-            </Text>
-            <Text className="text-lg font-semibold text-green-900">
-              Take a tour of the hidden places of Nepal with our experienced
-              guides
-            </Text>
-          </View>
-          {guides.length === 0 ? (
-            <Text className="text-gray-500 mt-4 px-4">
-              No guides available.
-            </Text>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="mt-3"
-            >
-              {guides.map((guide, index) => {
-                let imageUrl = guide.profileImage;
-                if (imageUrl) {
-                  if (!imageUrl.startsWith("http")) {
-                    imageUrl = imageUrl.startsWith("/")
-                      ? imageUrl.slice(1)
-                      : imageUrl;
-                    imageUrl = imageUrl.replace("uploads", "guideVerification");
-                    imageUrl = `${API_BASE_URL}/${imageUrl}`;
-                  }
-                } else {
-                  imageUrl = "https://via.placeholder.com/150";
-                }
-                return (
-                  <TouchableOpacity
-                    key={index}
-                    className="ml-4"
-                    onPress={() =>
-                      router.push({
-                        pathname: "/Booking",
-                        params: {
-                          guideId: guide.id,
-                          guideName:
-                            guide.name || guide.user?.name || guide.email,
-                          guideSpecialization: guide.specialization,
-                          guideImage: imageUrl,
-                        },
-                      })
-                    }
-                  >
-                    <Image
-                      source={{ uri: imageUrl }}
-                      className="w-60 h-64 rounded-xl mr-4"
-                      onError={(e) =>
-                        console.log(
-                          "Guide Image Load Error:",
-                          e.nativeEvent.error
-                        )
-                      }
-                    />
-                    <Text className="font-semibold mt-2 text-lg px-2">
-                      {guide.name || guide.user?.name || guide.email}
-                    </Text>
-                    <Text className="text-gray-500 text-base px-2">
-                      {guide.specialization || "No specialization listed"}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          )}
-
+        <View className="flex-1">
           <ScrollView
-            vertical
             showsVerticalScrollIndicator={false}
             className="mb-16"
           >
-            {/* Popular Hotels Section */}
-            <View className="px-4 mt-3">
+            {/* Main section */}
+            <View className="bg-lime-200 w-full px-4 h-60">
+              <View className="items-center mt-5">
+                <Text className="text-3xl font-extrabold text-slate-700 text-center">
+                  Enchanting experiences,{" "}
+                  <Text className="text-3xl text-pink-700">
+                    incredible guides
+                  </Text>
+                </Text>
+              </View>
+              <View className="items-center mt-3">
+                <Text className="text-lg font-semibold text-center text-slate-700 px-8">
+                  Hire guides and book hotels to make your experience worthy
+                </Text>
+              </View>
+              <View className="w-[300px] h-18 bg-white rounded-full mt-5 ml-8 flex-row items-center justify-center">
+                <Text className="px-6 py-3 text-lg font-medium text-zinc-500">
+                  Where are you going?
+                </Text>
+                <TouchableOpacity
+                  className="bg-pink-700 py-3 px-3 rounded-full justify-center"
+                  onPress={() => router.replace("/UserSearch")}
+                >
+                  <View className="flex-row items-center gap-3">
+                    <Ionicons name="search" size={15} color="white" />
+                    <Text className="text-white text-center font-semibold">
+                      Search
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Featured Guides */}
+            <View className="px-4 mt-1">
               <Text className="text-2xl font-semibold text-gray-900 mt-6">
-                Popular Hotels
+                Popular Guides
               </Text>
               <Text className="text-lg font-semibold text-green-900">
-                Make your travel smooth by booking rooms
+                Take a tour of the hidden places of Nepal with our experienced
+                guides
               </Text>
-              {loading ? (
-                <ActivityIndicator
-                  size="large"
-                  color="#00CC66"
-                  className="mt-4"
-                />
-              ) : hotels.length === 0 ? (
-                <Text className="text-gray-500 mt-4">No hotels available.</Text>
-              ) : (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  className="mt-3"
-                >
-                  {hotels.map((hotel, index) => {
-                    let imageUrl = hotel.profileImage;
-                    if (imageUrl) {
-                      if (!imageUrl.startsWith("http")) {
-                        imageUrl = imageUrl.startsWith("/")
-                          ? imageUrl.slice(1)
-                          : imageUrl;
-                        imageUrl = imageUrl.replace("uploads", "hotelUploads");
-                        imageUrl = `${API_BASE_URL}/${imageUrl}`;
-                      }
-                    } else {
-                      imageUrl = "https://via.placeholder.com/300";
+            </View>
+            {guides.length === 0 ? (
+              <Text className="text-gray-500 mt-4 px-4">
+                No guides available.
+              </Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="mt-3"
+              >
+                {guides.map((guide, index) => {
+                  let imageUrl = guide.profileImage;
+                  if (imageUrl) {
+                    if (!imageUrl.startsWith("http")) {
+                      imageUrl = imageUrl.startsWith("/")
+                        ? imageUrl.slice(1)
+                        : imageUrl;
+                      imageUrl = imageUrl.replace("uploads", "guideVerification");
+                      imageUrl = `${API_BASE_URL}/${imageUrl}`;
                     }
-                    return (
-                      <TouchableOpacity
-                        key={index}
-                        className="mr-4"
-                        onPress={() =>
-                          router.push({
-                            pathname: "/SpecificHotel",
-                            params: {
-                              hotelId: hotel.id,
-                              hotelName: hotel.name,
-                              hotelLocation: hotel.location,
-                              hotelImage: imageUrl,
-                              hotelPrice: hotel.price,
-                            },
-                          })
+                  } else {
+                    imageUrl = "https://via.placeholder.com/150";
+                  }
+                  return (
+                    <TouchableOpacity
+                      key={index}
+                      className="ml-4"
+                      onPress={() =>
+                        router.push({
+                          pathname: "/Booking",
+                          params: {
+                            guideId: guide.id,
+                            guideName:
+                              guide.name || guide.user?.name || guide.email,
+                            guideSpecialization: guide.specialization,
+                            guideImage: imageUrl,
+                          },
+                        })
+                      }
+                    >
+                      <Image
+                        source={{ uri: imageUrl }}
+                        className="w-60 h-64 rounded-xl mr-4"
+                        onError={(e) =>
+                          console.log(
+                            "Guide Image Load Error:",
+                            e.nativeEvent.error
+                          )
                         }
-                      >
-                        <Image
-                          source={{ uri: imageUrl }}
-                          className="w-60 h-64 rounded-xl mr-4"
-                          onError={(e) =>
-                            console.log(
-                              "Hotel Image Load Error:",
-                              e.nativeEvent.error
-                            )
+                      />
+                      <Text className="font-semibold mt-2 text-lg px-2">
+                        {guide.name || guide.user?.name || guide.email}
+                      </Text>
+                      <Text className="text-gray-500 text-base px-2">
+                        {guide.specialization || "No specialization listed"}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              className="mb-16"
+            >
+              {/* Popular Hotels Section */}
+              <View className="px-4 mt-3">
+                <Text className="text-2xl font-semibold text-gray-900 mt-6">
+                  Popular Hotels
+                </Text>
+                <Text className="text-lg font-semibold text-green-900">
+                  Make your travel smooth by booking rooms
+                </Text>
+                {loading ? (
+                  <ActivityIndicator
+                    size="large"
+                    color="#00CC66"
+                    className="mt-4"
+                  />
+                ) : hotels.length === 0 ? (
+                  <Text className="text-gray-500 mt-4">No hotels available.</Text>
+                ) : (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    className="mt-3"
+                  >
+                    {hotels.map((hotel, index) => {
+                      let imageUrl = hotel.profileImage;
+                      if (imageUrl) {
+                        if (!imageUrl.startsWith("http")) {
+                          imageUrl = imageUrl.startsWith("/")
+                            ? imageUrl.slice(1)
+                            : imageUrl;
+                          imageUrl = imageUrl.replace("uploads", "hotelUploads");
+                          imageUrl = `${API_BASE_URL}/${imageUrl}`;
+                        }
+                      } else {
+                        imageUrl = "https://via.placeholder.com/300";
+                      }
+                      return (
+                        <TouchableOpacity
+                          key={index}
+                          className="mr-4"
+                          onPress={() =>
+                            router.push({
+                              pathname: "/SpecificHotel",
+                              params: {
+                                hotelId: hotel.id,
+                                hotelName: hotel.name,
+                                hotelLocation: hotel.location,
+                                hotelImage: imageUrl,
+                                hotelPrice: hotel.price,
+                              },
+                            })
                           }
-                        />
-                        <View>
-                          <Text className="font-semibold mt-3 text-lg">
-                            {hotel.name}
-                          </Text>
-                          <Text className="text-gray-500 text-base">
-                            {hotel.location}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              )}
+                        >
+                          <Image
+                            source={{ uri: imageUrl }}
+                            className="w-60 h-64 rounded-xl mr-4"
+                            onError={(e) =>
+                              console.log(
+                                "Hotel Image Load Error:",
+                                e.nativeEvent.error
+                              )
+                            }
+                          />
+                          <View>
+                            <Text className="font-semibold mt-3 text-lg">
+                              {hotel.name}
+                            </Text>
+                            <Text className="text-gray-500 text-base">
+                              {hotel.location}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </View>
+            </ScrollView>
+
+            {/* Experiences */}
+            <View className="flex-1 bg-white p-4">
+              <Text className="text-2xl font-bold text-gray-900">
+                Find your{" "}
+                <Text className="text-pink-700">perfect experience</Text>
+              </Text>
+              <Text className="text-green-700 mt-2">
+                Discover experiences based on your interest
+              </Text>
+              <View className="mt-2 px-10 gap-3">
+                {experiences.map((exp) => (
+                  <TouchableOpacity
+                    key={exp.id}
+                    className="flex-row items-center p-4 border border-gray-200 bg-gray-200 rounded-xl"
+                  >
+                    <Ionicons name={exp.icon as "pizza" | "walk" | "image" | "people" | "moon" | "bicycle"} size={24} color="#d63384" />
+                    <View className="ml-4">
+                      <Text className="text-pink-700 font-bold">{exp.title}</Text>
+                      <Text className="text-gray-700">{exp.subtitle}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Why GuideNepal? */}
+            <View className="bg-pink-900 p-6 rounded-2xl mx-4 mt-6">
+              <View className="flex-row items-center justify-center gap-3 px-4">
+                <Image
+                  source={require("../assets/images/Logo.png")}
+                  style={{ width: 30, height: 30 }}
+                />
+                <Text className="font-bold text-white text-xl">GuideNepal</Text>
+              </View>
+              <Text className="text-center text-white text-lg font-semibold mt-2">
+                Why you should book a{" "}
+                <Text className="text-white font-bold">GuideNepal</Text>
+              </Text>
+              <View className="mt-6 space-y-6">
+                <View className="flex items-center">
+                  <View className="bg-white rounded-full">
+                    <Image
+                      source={require("../assets/icons/magic.png")}
+                      style={{ width: 30, height: 30 }}
+                    />
+                  </View>
+                  <Text className="text-yellow-400 font-bold text-lg mt-2">
+                    100% Customizable
+                  </Text>
+                  <Text className="text-white text-center px-8">
+                    Let your local host tailor the tour completely to your wishes.
+                  </Text>
+                </View>
+                <View className="flex items-center mt-6">
+                  <Image
+                    source={require("../assets/icons/guide.png")}
+                    style={{ width: 30, height: 30 }}
+                  />
+                  <Text className="text-yellow-400 font-bold text-lg mt-2">
+                    Private guided tours
+                  </Text>
+                  <Text className="text-white text-center px-8">
+                    No strangers on your tour. It's just you and your local host.
+                  </Text>
+                </View>
+                <View className="flex items-center mt-6">
+                  <Image
+                    source={require("../assets/icons/eco.png")}
+                    style={{ width: 30, height: 30 }}
+                  />
+                  <Text className="text-yellow-400 font-bold text-lg mt-2">
+                    Responsible
+                  </Text>
+                  <Text className="text-white text-center px-8">
+                    Our tours are designed with people, places & the planet in
+                    mind.
+                  </Text>
+                </View>
+              </View>
             </View>
           </ScrollView>
 
-          {/* Experiences */}
-          <View className="flex-1 bg-white p-4">
-            <Text className="text-2xl font-bold text-gray-900">
-              Find your{" "}
-              <Text className="text-pink-700">perfect experience</Text>
-            </Text>
-            <Text className="text-green-700 mt-2">
-              Discover experiences based on your interest
-            </Text>
-            <View className="mt-2 px-10 gap-3">
-              {experiences.map((exp) => (
-                <TouchableOpacity
-                  key={exp.id}
-                  className="flex-row items-center p-4 border border-gray-200 bg-gray-200 rounded-xl"
-                >
-                  <Ionicons name={exp.icon} size={24} color="#d63384" />
-                  <View className="ml-4">
-                    <Text className="text-pink-700 font-bold">{exp.title}</Text>
-                    <Text className="text-gray-700">{exp.subtitle}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Why GuideNepal? */}
-          <View className="bg-pink-900 p-6 rounded-2xl mx-4 mt-6">
-            <View className="flex-row items-center justify-center gap-3 px-4">
-              <Image
-                source={require("../assets/images/Logo.png")}
-                style={{ width: 30, height: 30 }}
-              />
-              <Text className="font-bold text-white text-xl">GuideNepal</Text>
-            </View>
-            <Text className="text-center text-white text-lg font-semibold mt-2">
-              Why you should book a{" "}
-              <Text className="text-white font-bold">GuideNepal</Text>
-            </Text>
-            <View className="mt-6 space-y-6">
-              <View className="flex items-center">
-                <View className="bg-white rounded-full">
-                  <Image
-                    source={require("../assets/icons/magic.png")}
-                    style={{ width: 30, height: 30 }}
-                  />
-                </View>
-                <Text className="text-yellow-400 font-bold text-lg mt-2">
-                  100% Customizable
-                </Text>
-                <Text className="text-white text-center px-8">
-                  Let your local host tailor the tour completely to your wishes.
-                </Text>
-              </View>
-              <View className="flex items-center mt-6">
-                <Image
-                  source={require("../assets/icons/guide.png")}
-                  style={{ width: 30, height: 30 }}
-                />
-                <Text className="text-yellow-400 font-bold text-lg mt-2">
-                  Private guided tours
-                </Text>
-                <Text className="text-white text-center px-8">
-                  No strangers on your tour. It's just you and your local host.
-                </Text>
-              </View>
-              <View className="flex items-center mt-6">
-                <Image
-                  source={require("../assets/icons/eco.png")}
-                  style={{ width: 30, height: 30 }}
-                />
-                <Text className="text-yellow-400 font-bold text-lg mt-2">
-                  Responsible
-                </Text>
-                <Text className="text-white text-center px-8">
-                  Our tours are designed with people, places & the planet in
-                  mind.
-                </Text>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Bottom Navigation */}
-        <View className="absolute bottom-0 left-0 right-0 bg-white flex-row justify-around p-4 border-t border-gray-200">
-          <View className="items-center">
-            <TouchableOpacity onPress={() => router.replace("/UserHome")}>
-              <Ionicons name="home" size={20} color="purple" />
-            </TouchableOpacity>
-            <Text className="text-purple-700">Explore</Text>
-          </View>
-          <View className="items-center">
-            <TouchableOpacity onPress={() => router.replace("/UserBooking")}>
-              <Ionicons name="ticket-outline" size={20} color="gray" />
-            </TouchableOpacity>
-            <Text className="text-gray-500">Booking</Text>
-          </View>
-          <View className="items-center">
-            <TouchableOpacity onPress={() => router.replace("/UserChat")}>
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={20}
-                color="gray"
-              />
-            </TouchableOpacity>
-            <Text className="text-gray-500">Chat</Text>
-          </View>
-          <View className="items-center">
-            <TouchableOpacity onPress={() => router.replace("/UserPackage")}>
-              <Ionicons name="menu-outline" size={20} color="gray" />
-            </TouchableOpacity>
-            <Text className="text-gray-500">Package</Text>
-          </View>
+          {/* Chat Icon */}
+          <TouchableOpacity
+            className="absolute bottom-24 right-4 bg-white p-3 rounded-full shadow-lg"
+            onPress={() => router.replace("/Chatbot")}
+          >
+            <Ionicons
+              name="chatbubble-ellipses-outline"
+              size={30}
+              color="#d63384"
+            />
+          </TouchableOpacity>
         </View>
 
-        {/* Chat Icon */}
-        <TouchableOpacity
-          className="absolute bottom-24 right-4 bg-white p-3 rounded-full shadow-lg"
-          onPress={() => router.replace("/Chatbot")}
-        >
-          <Ionicons
-            name="chatbubble-ellipses-outline"
-            size={30}
-            color="#d63384"
-          />
-        </TouchableOpacity>
+        {/* Bottom Navigation */}
+        <UserNavigation />
       </View>
     </>
   );
