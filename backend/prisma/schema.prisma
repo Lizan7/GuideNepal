@@ -21,6 +21,7 @@ model User {
   role             Role
   guides           Guide[]
   hotels           Hotel[]
+  admin            Admin?         // New relation to Admin model
   bookings         UserBooking[]
   hotelBookings    HotelBooking[]
   friends          User[]         @relation("UserFriends")
@@ -164,4 +165,17 @@ model Package {
   updatedAt   DateTime @updatedAt
   guide       Guide    @relation(fields: [guideId], references: [id])
   guideId     Int
+}
+
+// New Admin model
+model Admin {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @unique
+  user          User     @relation(fields: [userId], references: [id])
+  email         String
+  name          String?  @db.VarChar(255)
+  phoneNumber   String
+  profileImage  String?  @db.LongText
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
