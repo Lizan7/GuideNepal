@@ -145,7 +145,6 @@ const Chatbot: React.FC = () => {
     }
   };
 
-
   const renderMessage = ({ item }: { item: Message }) => (
     <Animated.View
       style={{
@@ -161,16 +160,32 @@ const Chatbot: React.FC = () => {
       }}
     >
       <View
-        className={`p-4 rounded-2xl my-1 max-w-[85%] shadow-sm ${
+        className={`p-4 rounded-2xl my-1.5 max-w-[85%] shadow-sm ${
           item.sender === "user"
-            ? "bg-purple-100 self-end mr-2 rounded-tr-sm"
+            ? "bg-purple-600 self-end mr-2 rounded-tr-sm"
             : "bg-white self-start ml-2 rounded-tl-sm"
         }`}
       >
-        <Text className={`text-base ${item.sender === "user" ? "text-purple-900" : "text-gray-800"}`}>
+        {item.sender === "ai" && (
+          <View className="flex-row items-center mb-1">
+            <View className="w-6 h-6 bg-purple-100 rounded-full items-center justify-center mr-2">
+              <Text className="text-purple-600 text-xs font-bold">AI</Text>
+            </View>
+            <Text className="text-xs text-gray-500">Geet</Text>
+          </View>
+        )}
+        <Text 
+          className={`text-base ${
+            item.sender === "user" ? "text-white" : "text-gray-800"
+          }`}
+        >
           {item.text}
         </Text>
-        <Text className="text-xs text-gray-500 mt-1">
+        <Text 
+          className={`text-xs mt-1 ${
+            item.sender === "user" ? "text-white/70" : "text-gray-500"
+          }`}
+        >
           {item.timestamp.toLocaleTimeString([], { 
             hour: '2-digit', 
             minute: '2-digit' 
@@ -187,75 +202,85 @@ const Chatbot: React.FC = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 " style={{ paddingTop: 0 }}>
-      {/* Header */}
+    <SafeAreaView className="flex-1 bg-gray-50">
+      {/* Enhanced Header */}
       <Animated.View 
-        className="h-16 flex-row items-center justify-between px-4 bg-purple-700"
+        className="h-16 flex-row items-center justify-between px-4 bg-gradient-to-r from-purple-600 to-purple-800 shadow-lg"
         style={{ opacity: fadeAnim }}
       >
-        <View className="flex-row bg-purple-700 items-center">
+        <View className="flex-row items-center space-x-3">
           <TouchableOpacity 
             onPress={() => router.replace("/UserHome")}
-            className="p-2 -ml-2"
+            className="p-2 bg-white/20 rounded-full"
           >
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={24} color="black" />
           </TouchableOpacity>
           <View>
-            <Text className="ml-2 text-white text-xl font-semibold">Geet - Travel Assistant</Text>
+            <Text className="text-black text-lg font-bold">Geet AI Assistant</Text>
+            <Text className="text-black/80 text-xs">Always here to help</Text>
           </View>
         </View>
       </Animated.View>
 
-      {/* Chat Container */}
-      <View className="flex-1 bg-gray-50 rounded-t-3xl">
-        <KeyboardAvoidingView
-          className="flex-1"
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-        >
-          {/* Chat Messages */}
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderMessage}
-            contentContainerStyle={{ 
-              padding: 16,
-              paddingBottom: 24,
-            }}
-            onContentSizeChange={scrollToBottom}
-            onLayout={scrollToBottom}
-          />
+      {/* Chat Messages */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      >
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerClassName="px-2 py-4"
+          onContentSizeChange={scrollToBottom}
+          onLayout={scrollToBottom}
+          className="flex-1 bg-gray-50"
+          showsVerticalScrollIndicator={false}
+        />
 
-          {/* Input Field */}
-          <View className="flex-row items-center justify-center border-t border-gray-200 p-3 bg-white">
-            <TextInput
-              className="flex-1 min-h-[40px] px-4 py-2 rounded-full bg-gray-100 text-gray-800 mt-2 "
-              placeholder="Ask about destinations, travel tips..."
-              placeholderTextColor="#9CA3AF"
-              value={inputText}
-              onChangeText={setInputText}
-              editable={!loading}
-              multiline
-              style={{ maxHeight: 100 }}
-              onSubmitEditing={sendMessage}
-            />
+        {/*Input Area */}
+        <View className="p-2 border-t border-gray-200 bg-white">
+          <View className="flex-row items-center px-2 gap-2">
+            <View className="flex-1 bg-gray-100 rounded-full flex-row items-center px-3 py-1">
+              <TextInput
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Type your message..."
+                placeholderTextColor="#9CA3AF"
+                className="flex-1 text-base text-gray-800 min-h-[40px]"
+                multiline
+                maxLength={500}
+                onSubmitEditing={sendMessage}
+              />
+              {inputText.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setInputText("")}
+                  className="p-1 mr-2"
+                >
+                  <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                </TouchableOpacity>
+              )}
+            </View>
             <TouchableOpacity
-              className={`ml-2 p-3 rounded-full justify-center items-center ${
-                !inputText.trim() || loading ? 'bg-purple-400' : 'bg-purple-700'
-              }`}
               onPress={sendMessage}
-              disabled={loading || !inputText.trim()}
+              disabled={!inputText.trim() || loading}
+              className={`p-2 rounded-full ${
+                !inputText.trim() || loading
+                  ? "bg-gray-300"
+                  : "bg-purple-600"
+              }`}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color="white" size="small" />
               ) : (
-                <Ionicons name="send" size={20} color="#fff" />
+                <Ionicons name="send" size={24} color="white" />
               )}
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
