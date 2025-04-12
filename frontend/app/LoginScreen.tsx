@@ -52,12 +52,14 @@ const LoginScreen = () => {
           router.replace("/GuideHome");
         } else if (user.role === "HOTEL") {
           router.replace("/HotelHome");
+        } else if (user.role === "ADMIN") {
+          router.replace("/admin");
         }
         
       } else {
         Alert.alert("Error", response.data.error || "Login failed");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log("Login Error:", error.message);
       Alert.alert("Error", error.response?.data?.error || "Login failed");
     }

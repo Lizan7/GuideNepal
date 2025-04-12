@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -56,6 +57,13 @@ const UserBooking = () => {
   const [filterType, setFilterType] = useState("all");
   const [showDropdown, setShowDropdown] = useState(false);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
+
+  // Move statusColors to component level
+  const statusColors = {
+    completed: "bg-green-100 text-green-800",
+    ongoing: "bg-blue-100 text-blue-800",
+    pending: "bg-yellow-100 text-yellow-800"
+  };
 
   const fetchBookings = async () => {
     try {
@@ -109,64 +117,82 @@ const UserBooking = () => {
     setShowBookingDetails(true);
   };
 
-  const renderBookingItem = ({ item }: { item: Booking & { type: string } }, type: string) => {
-    console.log("Rendering booking item:", item);
-    console.log("Booking type:", type);
+  const getImagePath = (path: string | undefined, type: string) => {
+    if (!path) return "https://via.placeholder.com/150";
     
-    // Extract the filename from the path for both guide and hotel images
-    const getImagePath = (path: string | undefined, type: string) => {
-      if (!path) return "https://via.placeholder.com/150";
-      
-      // Remove any leading slashes and 'uploads/' prefix
-      const cleanPath = path.replace(/^\/+/, '');
-      
-      if (type === "guide") {
-        return `${API_BASE_URL}/guideVerification/${cleanPath.replace(/^uploads\//, '')}`;
-      } else {
-        // For hotel images, keep the hotelUploads prefix
-        return `${API_BASE_URL}${cleanPath}`;
-      }
-    };
+    // Remove any leading slashes and clean the path
+    const cleanPath = path.replace(/^\/+/, '').replace(/^uploads\//, '');
+    
+    if (type === "guide") {
+      return `${API_BASE_URL}/guideVerification/${cleanPath}`;
+    } else {
+      // For hotel images, use hotelUploads directory
+      return `${API_BASE_URL}/hotelUploads/${cleanPath}`;
+    }
+  };
+
+  const renderBookingItem = ({ item }: { item: Booking & { type: string } }, type: string) => {
+    const status = getBookingStatus(item.startDate, item.endDate);
     
     return (
-      <View className="bg-gray-100 p-4 m-2 rounded-lg flex-row items-center">
-        <Image
-          source={{
-            uri: type === "guide" 
-              ? getImagePath(item.guide?.profileImage, "guide")
-              : getImagePath(item.hotel?.profileImage, "hotel")
-          }}
-          className="w-20 h-20 rounded-lg"
-          onError={(e) => {
-            console.log("Image Load Error:", e.nativeEvent.error);
-            console.log("Failed to load image for:", type);
-            console.log("Full item data:", JSON.stringify(item, null, 2));
-            console.log("Guide data:", item.guide);
-            console.log("Hotel data:", item.hotel);
-          }}
-        />
-        <View className="flex-1 ml-4">
-          <Text className="text-base font-bold">
-            {type === "guide" 
-              ? (item.guide?.user?.name || "Unknown Guide")
-              : (item.hotel?.name || "Unknown Hotel")}
-          </Text>
-          <Text className="text-sm text-gray-500">
-            {type === "guide" 
-              ? (item.guide?.specialization || "No specialization listed")
-              : (item.hotel?.location || "No location listed")}
-          </Text>
-          <Text className="text-sm text-gray-600">
-            {new Date(item.startDate).toDateString()} -{" "}
-            {new Date(item.endDate).toDateString()}
-          </Text>
+      <View className="bg-white m-3 rounded-xl shadow-md overflow-hidden border border-gray-100">
+        <View className="flex-row p-4">
+          <Image
+            source={{
+              uri: type === "guide" 
+                ? getImagePath(item.guide?.profileImage, "guide")
+                : getImagePath(item.hotel?.profileImage, "hotel")
+            }}
+            className="w-24 h-24 rounded-xl"
+            onError={(e) => {
+              console.log("Image Load Error:", e.nativeEvent.error);
+              console.log("Image path:", type === "guide" 
+                ? getImagePath(item.guide?.profileImage, "guide")
+                : getImagePath(item.hotel?.profileImage, "hotel"));
+            }}
+          />
+          <View className="flex-1 ml-4 justify-between">
+            <View>
+              <Text className="text-lg font-bold text-gray-800">
+                {type === "guide" 
+                  ? (item.guide?.user?.name || "Unknown Guide")
+                  : (item.hotel?.name || "Unknown Hotel")}
+              </Text>
+              <Text className="text-sm text-gray-500 mt-1">
+                {type === "guide" 
+                  ? (item.guide?.specialization || "No specialization listed")
+                  : (item.hotel?.location || "No location listed")}
+              </Text>
+            </View>
+            <View className="flex-row items-center justify-between mt-2">
+              <View className={`px-3 py-1 rounded-full ${statusColors[status as keyof typeof statusColors]}`}>
+                <Text className="text-xs font-medium capitalize">{status}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleViewBooking(item, type)}
+                className="bg-purple-600 px-4 py-2 rounded-lg flex-row items-center"
+              >
+                <Text className="text-white font-medium mr-1">Details</Text>
+                <Ionicons name="chevron-forward" size={16} color="white" />
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
-        <TouchableOpacity
-          onPress={() => handleViewBooking(item, type)}
-          className="bg-pink-600 px-4 py-1 rounded-md"
-        >
-          <Text className="text-white font-medium">View</Text>
-        </TouchableOpacity>
+        <View className="px-4 pb-4 border-t border-gray-100 mt-2 pt-2">
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+              <Text className="text-sm text-gray-600 ml-1">
+                {new Date(item.startDate).toLocaleDateString()} - {new Date(item.endDate).toLocaleDateString()}
+              </Text>
+            </View>
+            {item.price && (
+              <Text className="text-purple-600 font-semibold">
+                Rs. {item.price.toLocaleString()}
+              </Text>
+            )}
+          </View>
+        </View>
       </View>
     );
   };
@@ -221,44 +247,35 @@ const UserBooking = () => {
     return diffDays;
   };
 
-  // Add a function to get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed":
-        return "text-green-600";
-      case "ongoing":
-        return "text-blue-600";
-      case "pending":
-        return "text-yellow-600";
-      default:
-        return "text-gray-600";
-    }
-  };
-
   return (
-    <View className="flex-1 bg-white">
-      <View className="px-6 py-6 bg-gray-200 flex-row justify-between">
-        <TouchableOpacity onPress={() => router.replace("/UserHome")}>
-          <Ionicons name="chevron-back-outline" size={24} color="black" />
-        </TouchableOpacity>
-        <Text className="text-lg font-bold text-gray-800">
-          Upcoming Bookings
-        </Text>
-        <TouchableOpacity 
-          onPress={() => setShowDropdown(!showDropdown)}
-          className="flex-row items-center"
-        >
-          <Text className="text-gray-700 mr-2">
-            {capitalizeFirstLetter(filterType)}
-          </Text>
-          <Ionicons 
-            name={showDropdown ? "chevron-up" : "chevron-down"} 
-            size={20} 
-            color="black" 
-          />
-        </TouchableOpacity>
+    <View className="flex-1 bg-gray-50">
+      {/* Enhanced Header */}
+      <View className="bg-white shadow-sm">
+        <View className="px-4 py-4 flex-row justify-between items-center">
+          <TouchableOpacity 
+            onPress={() => router.replace("/UserHome")}
+            className="p-2 -ml-2"
+          >
+            <Ionicons name="chevron-back-outline" size={24} color="#374151" />
+          </TouchableOpacity>
+          <Text className="text-xl font-bold text-gray-800">My Bookings</Text>
+          <TouchableOpacity 
+            onPress={() => setShowDropdown(!showDropdown)}
+            className="flex-row items-center bg-gray-100 px-3 py-1.5 rounded-full"
+          >
+            <Text className="text-gray-700 mr-1 font-medium">
+              {capitalizeFirstLetter(filterType)}
+            </Text>
+            <Ionicons 
+              name={showDropdown ? "chevron-up" : "chevron-down"} 
+              size={16} 
+              color="#374151" 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {/* Filter Dropdown Modal */}
       <Modal
         visible={showDropdown}
         transparent={true}
@@ -269,119 +286,110 @@ const UserBooking = () => {
           style={{ flex: 1 }} 
           activeOpacity={1} 
           onPress={() => setShowDropdown(false)}
+          className="bg-black/20"
         >
-          <View className="absolute right-6 top-20 bg-white rounded-lg shadow-lg w-32">
-            <TouchableOpacity 
-              className="p-3 border-b border-gray-200"
-              onPress={() => {
-                setFilterType("all");
-                setShowDropdown(false);
-              }}
-            >
-              <Text className={`${filterType === "all" ? "text-pink-600" : "text-gray-700"}`}>
-                All
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              className="p-3 border-b border-gray-200"
-              onPress={() => {
-                setFilterType("guide");
-                setShowDropdown(false);
-              }}
-            >
-              <Text className={`${filterType === "guide" ? "text-pink-600" : "text-gray-700"}`}>
-                Guides
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              className="p-3"
-              onPress={() => {
-                setFilterType("hotel");
-                setShowDropdown(false);
-              }}
-            >
-              <Text className={`${filterType === "hotel" ? "text-pink-600" : "text-gray-700"}`}>
-                Hotels
-              </Text>
-            </TouchableOpacity>
+          <View className="absolute right-4 top-20 bg-white rounded-xl shadow-xl w-36 overflow-hidden">
+            {["all", "guide", "hotel"].map((type) => (
+              <TouchableOpacity 
+                key={type}
+                className={`p-3 flex-row items-center justify-between ${
+                  filterType === type ? "bg-purple-50" : ""
+                }`}
+                onPress={() => {
+                  setFilterType(type);
+                  setShowDropdown(false);
+                }}
+              >
+                <Text className={`${
+                  filterType === type ? "text-purple-600 font-medium" : "text-gray-700"
+                }`}>
+                  {capitalizeFirstLetter(type)}
+                </Text>
+                {filterType === type && (
+                  <Ionicons name="checkmark" size={18} color="#7C3AED" />
+                )}
+              </TouchableOpacity>
+            ))}
           </View>
         </TouchableOpacity>
       </Modal>
 
       {loading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#d63384" />
-          <Text className="text-lg text-gray-600 mt-3">
-            Loading bookings...
+          <ActivityIndicator size="large" color="#7C3AED" />
+          <Text className="text-base text-gray-600 mt-4">
+            Loading your bookings...
           </Text>
         </View>
       ) : filteredBookings().length === 0 ? (
-        <View className="flex-1 items-center mt-10">
+        <View className="flex-1 items-center justify-center px-4">
           <Image
             source={require("../assets/images/no-booking.png")}
-            className="w-64 h-60"
+            className="w-64 h-60 mb-6"
           />
-          <Text className="text-2xl font-bold text-gray-700 mt-2">
-            No upcoming bookings
+          <Text className="text-2xl font-bold text-gray-800 text-center">
+            No Bookings Found
           </Text>
-          <Text className="text-pink-600 mt-1 text-xl">
-            Explore things to do.
+          <Text className="text-base text-gray-600 mt-2 text-center">
+            Start exploring amazing destinations and book your next adventure!
           </Text>
+          <TouchableOpacity
+            onPress={() => router.replace("/UserHome")}
+            className="mt-6 bg-purple-600 px-6 py-3 rounded-full flex-row items-center"
+          >
+            <Ionicons name="search" size={20} color="white" className="mr-2" />
+            <Text className="text-white font-medium">Explore Now</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={filteredBookings()}
           keyExtractor={(item) => `${item.type}-${item.id}`}
           renderItem={(item) => renderBookingItem(item, item.item.type)}
+          contentContainerClassName="pb-6"
+          showsVerticalScrollIndicator={false}
         />
       )}
 
-      {/* Booking Details Modal */}
+      {/* Booking Details Modal - Enhanced */}
       <Modal
         visible={showBookingDetails}
         transparent={true}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowBookingDetails(false)}
       >
-        <TouchableOpacity 
-          style={{ flex: 1 }} 
-          activeOpacity={1} 
-          onPress={() => setShowBookingDetails(false)}
-        >
-          <View className="flex-1 justify-end bg-black/50">
-            <View className="bg-white rounded-t-3xl p-6">
-              <View className="items-center mb-6">
-                <View className="w-16 h-1 bg-gray-300 rounded-full mb-4" />
-                <Text className="text-xl font-bold">Booking Details</Text>
+        <View className="flex-1 bg-black/50">
+          <View className="flex-1 justify-end">
+            <View className="bg-white rounded-t-3xl">
+              <View className="items-center pt-4 pb-2 border-b border-gray-100">
+                <View className="w-12 h-1 bg-gray-300 rounded-full mb-4" />
+                <Text className="text-xl font-bold text-gray-800">Booking Details</Text>
               </View>
 
               {selectedBooking && bookingType ? (
-                <View>
-                  <View className="flex-row items-center mb-4">
+                <ScrollView className="p-4" showsVerticalScrollIndicator={false}>
+                  <View className="flex-row items-center mb-6">
                     <Image
                       source={{
                         uri: bookingType === "guide"
-                          ? (selectedBooking.guide?.profileImage
-                              ? `${API_BASE_URL}/guideVerification/${selectedBooking.guide.profileImage.replace(/^\/+/, '').replace(/^uploads\//, '')}`
-                              : "https://via.placeholder.com/150")
-                          : (selectedBooking.hotel?.profileImage
-                              ? `${API_BASE_URL}${selectedBooking.hotel.profileImage.replace(/^\/+/, '')}`
-                              : "https://via.placeholder.com/150")
+                          ? getImagePath(selectedBooking.guide?.profileImage, "guide")
+                          : getImagePath(selectedBooking.hotel?.profileImage, "hotel")
                       }}
-                      className="w-20 h-20 rounded-lg"
+                      className="w-24 h-24 rounded-xl"
                       onError={(e) => {
-                        console.log("Image Load Error in modal:", e.nativeEvent.error);
-                        console.log("Failed to load image for:", bookingType);
-                        console.log("Selected booking data:", JSON.stringify(selectedBooking, null, 2));
+                        console.log("Modal Image Load Error:", e.nativeEvent.error);
+                        console.log("Modal Image path:", bookingType === "guide"
+                          ? getImagePath(selectedBooking.guide?.profileImage, "guide")
+                          : getImagePath(selectedBooking.hotel?.profileImage, "hotel"));
                       }}
                     />
-                    <View className="ml-4">
-                      <Text className="text-lg font-bold">
+                    <View className="ml-4 flex-1">
+                      <Text className="text-xl font-bold text-gray-800">
                         {bookingType === "guide"
                           ? (selectedBooking.guide?.user?.name || "Unknown Guide")
                           : (selectedBooking.hotel?.name || "Unknown Hotel")}
                       </Text>
-                      <Text className="text-sm text-gray-600">
+                      <Text className="text-base text-gray-600 mt-1">
                         {bookingType === "guide"
                           ? (selectedBooking.guide?.specialization || "No specialization listed")
                           : (selectedBooking.hotel?.location || "No location listed")}
@@ -389,60 +397,82 @@ const UserBooking = () => {
                     </View>
                   </View>
 
-                  <View className="bg-gray-100 p-3 rounded-lg mb-4">
-                    <Text className="text-base mb-2">
-                      <Text className="font-semibold">Booking ID:</Text>{" "}
-                      {selectedBooking.id}
-                    </Text>
-                    <Text className="text-base mb-2">
-                      <Text className="font-semibold">Booking Dates:</Text>{" "}
-                      {new Date(selectedBooking.startDate).toDateString()} -{" "}
-                      {new Date(selectedBooking.endDate).toDateString()}
-                    </Text>
-                    <Text className="text-base mb-2">
-                      <Text className="font-semibold">Status:</Text>{" "}
-                      <Text className={getStatusColor(getBookingStatus(selectedBooking.startDate, selectedBooking.endDate))}>
-                        {getBookingStatus(selectedBooking.startDate, selectedBooking.endDate).charAt(0).toUpperCase() + 
-                         getBookingStatus(selectedBooking.startDate, selectedBooking.endDate).slice(1)}
-                      </Text>
-                    </Text>
-                    <Text className="text-base mb-2">
-                      <Text className="font-semibold">Payment Status:</Text>{" "}
-                      <Text className={selectedBooking.paymentStatus ? "text-green-600" : "text-red-600"}>
-                        {selectedBooking.paymentStatus ? "Paid" : "Unpaid"}
-                      </Text>
-                    </Text>
+                  <View className="bg-purple-50 p-4 rounded-xl mb-4">
+                    <View className="flex-row items-center justify-between mb-3">
+                      <Text className="text-gray-600">Booking Status</Text>
+                      <View className={`px-3 py-1 rounded-full ${
+                        statusColors[getBookingStatus(selectedBooking.startDate, selectedBooking.endDate) as keyof typeof statusColors]
+                      }`}>
+                        <Text className="font-medium capitalize">
+                          {getBookingStatus(selectedBooking.startDate, selectedBooking.endDate)}
+                        </Text>
+                      </View>
+                    </View>
+                    <View className="flex-row items-center justify-between">
+                      <Text className="text-gray-600">Payment Status</Text>
+                      <View className={`px-3 py-1 rounded-full ${
+                        selectedBooking.paymentStatus ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                      }`}>
+                        <Text className="font-medium">
+                          {selectedBooking.paymentStatus ? "Paid" : "Unpaid"}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
 
-                  {bookingType === "hotel" && (
-                    <View className="bg-gray-100 p-3 rounded-lg mb-4">
-                      <Text className="text-base mb-2">
-                        <Text className="font-semibold">Rooms Booked:</Text>{" "}
-                        {selectedBooking.rooms || "N/A"}
-                      </Text>
-                      
+                  <View className="bg-gray-50 p-4 rounded-xl">
+                    <Text className="font-semibold text-gray-800 mb-3">Booking Information</Text>
+                    <View className="space-y-3">
+                      <View className="flex-row justify-between">
+                        <Text className="text-gray-600">Check-in</Text>
+                        <Text className="text-gray-800">
+                          {new Date(selectedBooking.startDate).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between">
+                        <Text className="text-gray-600">Check-out</Text>
+                        <Text className="text-gray-800">
+                          {new Date(selectedBooking.endDate).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <View className="flex-row justify-between">
+                        <Text className="text-gray-600">Duration</Text>
+                        <Text className="text-gray-800">
+                          {calculateNights(selectedBooking.startDate, selectedBooking.endDate)} nights
+                        </Text>
+                      </View>
+                      {bookingType === "hotel" && selectedBooking.rooms && (
+                        <View className="flex-row justify-between">
+                          <Text className="text-gray-600">Rooms</Text>
+                          <Text className="text-gray-800">{selectedBooking.rooms}</Text>
+                        </View>
+                      )}
+                      {selectedBooking.price && (
+                        <View className="flex-row justify-between">
+                          <Text className="text-gray-600">Total Amount</Text>
+                          <Text className="text-purple-600 font-semibold">
+                            Rs. {selectedBooking.price.toLocaleString()}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  )}
+                  </View>
 
-                  {bookingType === "guide" && (
-                    <View className="bg-gray-100 p-3 rounded-lg mb-4">
-                      <Text className="text-base mb-2">
-                        <Text className="font-semibold">Guide Specialization:</Text>{" "}
-                        {selectedBooking.guide?.specialization || "Not specified"}
-                      </Text>
-                      <Text className="text-base mb-2">
-                        <Text className="font-semibold">Guide Contact:</Text>{" "}
-                        {selectedBooking.guide?.email || "Not available"}
-                      </Text>
-                    </View>
-                  )}
-                </View>
+                  <TouchableOpacity
+                    onPress={() => setShowBookingDetails(false)}
+                    className="bg-gray-100 rounded-xl py-3 mt-6 mb-4"
+                  >
+                    <Text className="text-gray-700 font-medium text-center">Close</Text>
+                  </TouchableOpacity>
+                </ScrollView>
               ) : (
-                <Text>No booking details available.</Text>
+                <View className="p-4">
+                  <Text className="text-gray-600 text-center">No booking details available</Text>
+                </View>
               )}
             </View>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </View>
   );

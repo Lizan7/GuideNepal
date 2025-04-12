@@ -29,18 +29,18 @@ const HotelProfile = () => {
     try {
       setLoading(true);
       setError(null); // Reset any previous errors
-
+  
       const token = await AsyncStorage.getItem("token");
       if (!token) {
         Alert.alert("Error", "No authentication token found. Please log in.");
         setLoading(false);
         return;
       }
-
+  
       const response = await axios.get(`${API_BASE_URL}/hotels/hotelDetails`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
+  
       if (response.data.hotels && response.data.hotels.length > 0) {
         const hotel = response.data.hotels[0];
         setHotelData(hotel);
@@ -62,6 +62,7 @@ const HotelProfile = () => {
           isVerified: false
         });
         setProfileImage("https://via.placeholder.com/100");
+        Alert.alert("Info", "No hotel data found. Please register your hotel.");
       }
     } catch (error: any) {
       console.error("Error fetching hotel details:", error);
@@ -81,6 +82,7 @@ const HotelProfile = () => {
           isVerified: false
         });
         setProfileImage("https://via.placeholder.com/100");
+        Alert.alert("Info", "No hotel data found. Please register your hotel.");
       }
     } finally {
       setLoading(false);

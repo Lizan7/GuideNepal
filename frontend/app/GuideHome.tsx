@@ -269,9 +269,9 @@ const GuideHome = () => {
       <View className="bg-blue-600 px-4 pt-6 pb-6 rounded-b-3xl shadow-md">
         <View className="flex-row items-center justify-between mb-2">
           <View className="flex-row items-center">
-            <Image
-              source={require("../assets/images/Logo.png")}
-              style={{ width: 40, height: 40 }}
+        <Image
+          source={require("../assets/images/Logo.png")}
+          style={{ width: 40, height: 40 }}
             />
             <Text className="text-2xl font-bold text-white ml-2">GuideNepal</Text>
           </View>
@@ -281,7 +281,7 @@ const GuideHome = () => {
           >
             <Ionicons name="person-outline" size={24} color="white" />
           </TouchableOpacity>
-        </View>
+      </View>
         <Text className="text-white text-xl font-bold pl-2">
           Welcome back, Guide!
         </Text>
@@ -295,8 +295,8 @@ const GuideHome = () => {
         <View className="bg-white p-4 rounded-xl shadow-sm flex-1 mr-2">
           <View className="flex-row items-center justify-between">
             <Text className="text-2xl font-bold text-blue-600">
-              {totalBookings}
-            </Text>
+            {totalBookings}
+          </Text>
             <View className="bg-blue-100 p-2 rounded-full">
               <Ionicons name="calendar" size={20} color="#3B82F6" />
             </View>
@@ -306,8 +306,8 @@ const GuideHome = () => {
         <View className="bg-white p-4 rounded-xl shadow-sm flex-1 mx-2">
           <View className="flex-row items-center justify-between">
             <Text className="text-2xl font-bold text-yellow-600">
-              {pendingBookings}
-            </Text>
+            {pendingBookings}
+          </Text>
             <View className="bg-yellow-100 p-2 rounded-full">
               <Ionicons name="time" size={20} color="#EAB308" />
             </View>
@@ -317,8 +317,8 @@ const GuideHome = () => {
         <View className="bg-white p-4 rounded-xl shadow-sm flex-1 ml-2">
           <View className="flex-row items-center justify-between">
             <Text className="text-2xl font-bold text-green-600">
-              {completedBookings}
-            </Text>
+            {completedBookings}
+          </Text>
             <View className="bg-green-100 p-2 rounded-full">
               <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
             </View>
@@ -377,12 +377,12 @@ const GuideHome = () => {
               </View>
             )}
           </View>
-        </View>
+      </View>
 
-        {loading ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator size="large" color="#3B82F6" />
-          </View>
+      {loading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator size="large" color="#3B82F6" />
+        </View>
         ) : filteredBookings.length === 0 ? (
           <View className="flex-1 items-center justify-center">
             <Ionicons name="calendar-outline" size={64} color="#CBD5E1" />
@@ -393,20 +393,20 @@ const GuideHome = () => {
               {activeFilter === "all" 
                 ? "When you receive bookings, they will appear here" 
                 : `No ${activeFilter.toLowerCase()} bookings found`}
-            </Text>
-          </View>
-        ) : (
-          <FlatList
+          </Text>
+        </View>
+      ) : (
+        <FlatList
             data={filteredBookings}
             renderItem={renderBookingItem}
-            keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={{ paddingVertical: 8 }}
           />
-        )}
-      </View>
+              )}
+            </View>
 
       {renderBookingDetails()}
-      
+
       {/* Bottom Navigation */}
       <BottomNavigation />
     </View>
