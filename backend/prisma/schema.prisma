@@ -31,6 +31,7 @@ model User {
   Requestfrom      Request[]      @relation("RequestFrom")
   Requestuser      Request[]      @relation("RequestUser")
   ratings          Rating[]       // Relation to ratings submitted by this user
+  packageEnrollments PackageEnrollment[] // Add relation to package enrollments
 }
 
 model Guide {
@@ -153,18 +154,29 @@ model Rating {
 }
 
 model Package {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String   @db.Text
-  duration    Int
-  maxPeople   Int
-  locations   String   @db.Text  // Store as JSON string
-  price       Float
-  image       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  guide       Guide    @relation(fields: [guideId], references: [id])
-  guideId     Int
+  id            Int       @id @default(autoincrement())
+  name          String
+  description   String
+  price         Float
+  duration      Int
+  maxPeople     Int
+  isFulfilled   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  enrollments   PackageEnrollment[]
+}
+
+// Package enrollment model
+model PackageEnrollment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  packageId Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package   Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, packageId])
 }
 
 // New Admin model
@@ -179,3 +191,4 @@ model Admin {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+

@@ -7,21 +7,21 @@ const {
   getGuidePackages,
   updatePackage,
   deletePackage,
+  getEnrolledPackages,
+  enrollInPackage,
 } = require("../controllers/packageController");
 
-// Create a new package (requires authentication)
+// Public routes
+router.get("/", getAllPackages);
+
+// Protected routes
 router.post("/create", authenticateUser(), createPackage);
-
-// Get all packages
-router.get("/all", getAllPackages);
-
-// Get packages for the authenticated guide
 router.get("/guide", authenticateUser(), getGuidePackages);
-
-// Update a package
 router.put("/:id", authenticateUser(), updatePackage);
-
-// Delete a package
 router.delete("/:id", authenticateUser(), deletePackage);
+
+// Package enrollment routes
+router.get("/enrolled", authenticateUser(), getEnrolledPackages);
+router.post("/:packageId/enroll", authenticateUser(), enrollInPackage);
 
 module.exports = router; 
