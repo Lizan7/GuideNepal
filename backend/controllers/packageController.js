@@ -73,7 +73,7 @@ const createPackage = async (req, res) => {
       // Handle image upload
       let packageImage = null;
       if (req.file) {
-        packageImage = `/uploads/packageImages/${req.file.filename}`;
+        packageImage = `packageImages/${req.file.filename}`;
       }
 
       // Handle locations - convert to array if string, then to JSON
@@ -147,24 +147,29 @@ const getAllPackages = async (req, res) => {
             },
           },
         },
+        enrollments: true,
       },
     });
 
     // Parse locations JSON for each package with error handling
-    const packagesWithParsedLocations = packages.map(pkg => {
+    const packagesWithParsedLocations = packages.map((pkg) => {
       try {
         // Try to parse the locations JSON
         const parsedLocations = JSON.parse(pkg.locations);
         return {
           ...pkg,
-          locations: parsedLocations
+          locations: parsedLocations,
+          currentEnrollments: pkg.enrollments?.length || 0,
+          isFulfilled: (pkg.enrollments?.length || 0) >= pkg.maxPeople,
         };
       } catch (parseError) {
         console.error(`Error parsing locations for package ${pkg.id}:`, parseError);
         // If parsing fails, return the original locations as a string
         return {
           ...pkg,
-          locations: pkg.locations
+          locations: pkg.locations,
+          currentEnrollments: pkg.enrollments?.length || 0,
+          isFulfilled: (pkg.enrollments?.length || 0) >= pkg.maxPeople,
         };
       }
     });
@@ -265,14 +270,14 @@ const updatePackage = async (req, res) => {
       if (req.file) {
         // Delete old image if it exists
         if (existingPackage.image) {
-          const oldImagePath = path.join(__dirname, '..', existingPackage.image);
+          const oldImagePath = path.join(__dirname, '..', 'uploads', existingPackage.image);
           try {
             fs.unlinkSync(oldImagePath);
           } catch (error) {
             console.error("Error deleting old image:", error);
           }
         }
-        packageImage = `/uploads/packageImages/${req.file.filename}`;
+        packageImage = `packageImages/${req.file.filename}`;
       }
 
       // Convert locations string to array if it's a string
@@ -365,10 +370,161 @@ const deletePackage = async (req, res) => {
   }
 };
 
+// Get enrolled packages for a user
+const getEnrolledPackages = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const enrolledPackages = await prisma.packageEnrollment.findMany({
+      where: {
+        userId: parseInt(userId),
+      },
+      include: {
+        package: {
+          include: {
+            guide: {
+              include: {
+                user: {
+                  select: {
+                    name: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+            enrollments: true,
+          },
+        },
+      },
+    });
+
+    // Parse locations and add enrollment info
+    const formattedPackages = enrolledPackages.map((enrollment) => {
+      const pkg = enrollment.package;
+      try {
+        return {
+          ...pkg,
+          locations: JSON.parse(pkg.locations),
+          currentEnrollments: pkg.enrollments?.length || 0,
+          isFulfilled: (pkg.enrollments?.length || 0) >= pkg.maxPeople,
+        };
+      } catch (error) {
+        return {
+          ...pkg,
+          locations: pkg.locations,
+          currentEnrollments: pkg.enrollments?.length || 0,
+          isFulfilled: (pkg.enrollments?.length || 0) >= pkg.maxPeople,
+        };
+      }
+    });
+
+    res.status(200).json({
+      success: true,
+      data: formattedPackages,
+    });
+  } catch (error) {
+    console.error("Error fetching enrolled packages:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching enrolled packages",
+      error: error.message,
+    });
+  }
+};
+
+// Enroll in a package
+const enrollInPackage = async (req, res) => {
+  try {
+    const { packageId } = req.params;
+    const userId = req.user.id;
+
+    // Get the package and check if it exists
+    const package = await prisma.package.findUnique({
+      where: {
+        id: parseInt(packageId)
+      },
+      include: {
+        enrollments: true
+      }
+    });
+
+    if (!package) {
+      return res.status(404).json({
+        success: false,
+        message: "Package not found",
+      });
+    }
+
+    // Check if user is already enrolled
+    const existingEnrollment = await prisma.packageEnrollment.findFirst({
+      where: {
+        packageId: parseInt(packageId),
+        userId: parseInt(userId),
+      },
+    });
+
+    if (existingEnrollment) {
+      return res.status(400).json({
+        success: false,
+        message: "You are already enrolled in this package",
+      });
+    }
+
+    // Check if package is full
+    const currentEnrollments = package.enrollments?.length || 0;
+    if (currentEnrollments >= package.maxPeople) {
+      // Update package status to fulfilled
+      await prisma.package.update({
+        where: { id: parseInt(packageId) },
+        data: { isFulfilled: true },
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: "Package is already full",
+      });
+    }
+
+    // Create enrollment
+    const enrollment = await prisma.packageEnrollment.create({
+      data: {
+        packageId: parseInt(packageId),
+        userId: parseInt(userId),
+      },
+      include: {
+        package: true,
+      },
+    });
+
+    // Check if this enrollment makes the package full
+    if (currentEnrollments + 1 >= package.maxPeople) {
+      await prisma.package.update({
+        where: { id: parseInt(packageId) },
+        data: { isFulfilled: true },
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Successfully enrolled in package",
+      data: enrollment,
+    });
+  } catch (error) {
+    console.error("Error enrolling in package:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error enrolling in package",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createPackage,
   getAllPackages,
   getGuidePackages,
   updatePackage,
   deletePackage,
+  getEnrolledPackages,
+  enrollInPackage,
 };
