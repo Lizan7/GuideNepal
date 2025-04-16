@@ -56,16 +56,16 @@ const UserNavigation = () => {
       </TouchableOpacity>
       
       <TouchableOpacity 
-        onPress={() => router.replace("/UserMenu")}
+        onPress={() => router.replace("/UserPackage")}
         className="items-center"
       >
         <Ionicons 
-          name={isActive("/UserMenu") ? "menu" : "menu-outline"} 
+          name={isActive("/UserPackage") ? "cube" : "cube-outline"} 
           size={24} 
-          color={isActive("/UserMenu") ? "#9333EA" : "#6B7280"} 
+          color={isActive("/UserPackage") ? "#9333EA" : "#6B7280"} 
         />
-        <Text className={`text-xs mt-1 ${isActive("/UserMenu") ? "text-purple-700" : "text-gray-500"}`}>
-          Menu
+        <Text className={`text-xs mt-1 ${isActive("/UserPackage") ? "text-purple-700" : "text-gray-500"}`}>
+          Package
         </Text>
       </TouchableOpacity>
     </View>

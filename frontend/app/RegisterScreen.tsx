@@ -24,10 +24,59 @@ const SignUpScreen = () => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateName = (name: string) => {
+    return name.length >= 3 && name.length <= 50;
+  };
+
+  const validateForm = () => {
+    let isValid = true;
+    const newErrors = {
+      name: "",
+      email: "",
+      password: "",
+    };
+
+    // Name validation
+    if (!name) {
+      newErrors.name = "Name is required";
+      isValid = false;
+    } else if (!validateName(name)) {
+      newErrors.name = "Name must be between 3 and 50 characters";
+      isValid = false;
+    }
+
+    // Email validation
+    if (!email) {
+      newErrors.email = "Email is required";
+      isValid = false;
+    } else if (!validateEmail(email)) {
+      newErrors.email = "Please enter a valid email address";
+      isValid = false;
+    }
+
+    // Password validation - only check if empty
+    if (!password) {
+      newErrors.password = "Password is required";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
 
   const handleRegister = async () => {
-    if (!name || !email || !password) {
-      Alert.alert("Error", "All fields are required.");
+    if (!validateForm()) {
       return;
     }
 
@@ -40,12 +89,17 @@ const SignUpScreen = () => {
         role,
       });
 
-      if (response.data.token) {
-        await AsyncStorage.setItem("token", response.data.token);
-        Alert.alert("Success", "Registration successful!");
-        router.replace("/LoginScreen");
-      } else {
-        Alert.alert("Error", "Registration failed. Please try again.");
+      if (response.data) {
+        Alert.alert(
+          "Success",
+          "Registration successful! Please login to continue.",
+          [
+            {
+              text: "OK",
+              onPress: () => router.replace("/LoginScreen"),
+            },
+          ]
+        );
       }
     } catch (error: any) {
       console.error("Registration error:", error);
@@ -81,25 +135,41 @@ const SignUpScreen = () => {
         <View className="mb-3">
           <Text className="text-gray-700">Username</Text>
           <TextInput
-            className="border border-gray-300 rounded-lg p-3 bg-gray-100 mt-1"
+            className={`border ${
+              errors.name ? "border-red-500" : "border-gray-300"
+            } rounded-lg p-3 bg-gray-100 mt-1`}
             placeholder="Enter your username"
             placeholderTextColor="gray"
             value={name}
-            onChangeText={setName}
+            onChangeText={(text) => {
+              setName(text);
+              setErrors({ ...errors, name: "" });
+            }}
           />
+          {errors.name ? (
+            <Text className="text-red-500 text-sm mt-1">{errors.name}</Text>
+          ) : null}
         </View>
 
         {/* Email */}
         <View className="mb-3">
           <Text className="text-gray-700">Email</Text>
           <TextInput
-            className="border border-gray-300 rounded-lg p-3 bg-gray-100 mt-1"
+            className={`border ${
+              errors.email ? "border-red-500" : "border-gray-300"
+            } rounded-lg p-3 bg-gray-100 mt-1`}
             placeholder="Enter your email address"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              setEmail(text);
+              setErrors({ ...errors, email: "" });
+            }}
             keyboardType="email-address"
             autoCapitalize="none"
           />
+          {errors.email ? (
+            <Text className="text-red-500 text-sm mt-1">{errors.email}</Text>
+          ) : null}
         </View>
 
         {/* Password */}
@@ -107,12 +177,17 @@ const SignUpScreen = () => {
           <Text className="text-gray-700">Password</Text>
           <View className="relative">
             <TextInput
-              className="border border-gray-300 rounded-lg p-3 bg-gray-100 mt-1 pr-10"
+              className={`border ${
+                errors.password ? "border-red-500" : "border-gray-300"
+              } rounded-lg p-3 bg-gray-100 mt-1 pr-10`}
               placeholder="Enter your password"
               placeholderTextColor="gray"
               secureTextEntry={!isPasswordVisible}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(text) => {
+                setPassword(text);
+                setErrors({ ...errors, password: "" });
+              }}
               autoCapitalize="none"
             />
             <TouchableOpacity
@@ -126,6 +201,9 @@ const SignUpScreen = () => {
               />
             </TouchableOpacity>
           </View>
+          {errors.password ? (
+            <Text className="text-red-500 text-sm mt-1">{errors.password}</Text>
+          ) : null}
         </View>
 
         {/* Role Selection */}
