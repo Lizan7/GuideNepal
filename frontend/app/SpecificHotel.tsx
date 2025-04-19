@@ -458,7 +458,7 @@ const HotelBooking = () => {
             className="bg-gray-100 p-2 rounded-full"
           >
             <Ionicons name="arrow-back" size={24} color="#374151" />
-          </TouchableOpacity>
+        </TouchableOpacity>
           <Text className="text-xl font-bold text-gray-800">Hotel Details</Text>
           <View className="w-10" />
         </View>
@@ -467,8 +467,8 @@ const HotelBooking = () => {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/*Hotel Info Card */}
         <View className="bg-white mt-4 mx-4 rounded-2xl shadow-sm overflow-hidden">
-          <Image
-            source={{ uri: hotelImage }}
+        <Image
+          source={{ uri: hotelImage }}
             className="w-full h-64"
             resizeMode="cover"
           />
@@ -506,34 +506,34 @@ const HotelBooking = () => {
         {/* Enhanced Tabs */}
         <View className="mt-8 px-4">
           <View className="flex-row bg-gray-100 p-1 rounded-xl">
-            <TouchableOpacity
+          <TouchableOpacity
               className={`flex-1 py-3 ${
                 selectedTab === "About" 
                 ? "bg-white rounded-lg shadow-sm" 
                 : ""
-              }`}
-              onPress={() => setSelectedTab("About")}
-            >
+            }`}
+            onPress={() => setSelectedTab("About")}
+          >
               <Text className={`text-center font-semibold ${
                 selectedTab === "About" 
                 ? "text-blue-500" 
                 : "text-gray-600"
               }`}>About</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+          </TouchableOpacity>
+          <TouchableOpacity
               className={`flex-1 py-3 ${
                 selectedTab === "Reviews" 
                 ? "bg-white rounded-lg shadow-sm" 
                 : ""
-              }`}
-              onPress={() => setSelectedTab("Reviews")}
-            >
+            }`}
+            onPress={() => setSelectedTab("Reviews")}
+          >
               <Text className={`text-center font-semibold ${
                 selectedTab === "Reviews" 
                 ? "text-blue-500" 
                 : "text-gray-600"
               }`}>Reviews</Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
           </View>
         </View>
 
@@ -607,7 +607,7 @@ const HotelBooking = () => {
                   </View>
                   <Text className="text-gray-700 leading-relaxed">
                     {hotelDetails.itineraries || "No itineraries specified"}
-                  </Text>
+            </Text>
                 </View>
 
                 {/* Description Card */}

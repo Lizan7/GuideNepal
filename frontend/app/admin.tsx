@@ -181,9 +181,19 @@ const Admin = () => {
       <View className="flex-row items-center">
         <Image
           source={{
-            uri: item.profileImage
-              ? `${API_BASE_URL.replace('/api', '')}/uploads/guides/${item.profileImage}`
-              : "https://via.placeholder.com/150",
+            uri: (() => {
+              let imageUrl = item.profileImage;
+              if (imageUrl) {
+                if (!imageUrl.startsWith("http")) {
+                  imageUrl = imageUrl.startsWith("/") ? imageUrl.slice(1) : imageUrl;
+                  imageUrl = imageUrl.replace("uploads", "guideVerification");
+                  imageUrl = `${API_BASE_URL}/${imageUrl}`;
+                }
+              } else {
+                imageUrl = "https://via.placeholder.com/150";
+              }
+              return imageUrl;
+            })(),
           }}
           className="w-20 h-20 rounded-lg"
         />
@@ -226,56 +236,60 @@ const Admin = () => {
     </View>
   );
 
-  const renderHotelItem = ({ item }: { item: Hotel }) => (
-    <View className="bg-white p-4 m-2 rounded-lg shadow-sm">
-      <View className="flex-row items-center">
-        <Image
-          source={{
-            uri: item.hotelProfile
-              ? `${API_BASE_URL.replace('/api', '')}/uploads/hotels/${item.hotelProfile}`
-              : "https://via.placeholder.com/150",
-          }}
-          className="w-20 h-20 rounded-lg"
-        />
-        <View className="ml-4 flex-1">
-          <Text className="text-lg font-bold">{item.name}</Text>
-          <Text className="text-gray-600">{item.location}</Text>
-          <Text className="text-gray-600">Total Rooms: {item.totalRooms}</Text>
-          <Text className="text-gray-600">Price: Rs. {item.price}</Text>
-          <View className="flex-row justify-between items-center mt-2">
-            <Text
-              className={`${
-                item.isVerified ? "text-green-600" : "text-yellow-600"
-              } font-semibold`}
-            >
-              {item.isVerified ? "Verified" : "Pending Verification"}
-            </Text>
-            {!item.isVerified && (
-              <TouchableOpacity
-                onPress={() => handleVerifyHotel(item.id)}
-                className="bg-green-500 px-4 py-2 rounded-md"
+  const renderHotelItem = ({ item }: { item: Hotel }) => {
+    const imageUrl = item.profileImage 
+      ? (item.profileImage.startsWith("http") 
+          ? item.profileImage 
+          : `${API_BASE_URL}/${item.profileImage.replace("uploads", "hotelUploads").replace(/^\//, "")}`)
+      : "https://via.placeholder.com/150";
+
+    return (
+      <View className="bg-white p-4 m-2 rounded-lg shadow-sm">
+        <View className="flex-row items-center">
+          <Image
+            source={{ uri: imageUrl }}
+            className="w-20 h-20 rounded-lg"
+          />
+          <View className="ml-4 flex-1">
+            <Text className="text-lg font-bold">{item.name}</Text>
+            <Text className="text-gray-600">{item.location}</Text>
+            <Text className="text-gray-600">Total Rooms: {item.totalRooms}</Text>
+            <Text className="text-gray-600">Price: Rs. {item.price}</Text>
+            <View className="flex-row justify-between items-center mt-2">
+              <Text
+                className={`${
+                  item.isVerified ? "text-green-600" : "text-yellow-600"
+                } font-semibold`}
               >
-                <Text className="text-white font-semibold">Verify</Text>
-              </TouchableOpacity>
-            )}
+                {item.isVerified ? "Verified" : "Pending Verification"}
+              </Text>
+              {!item.isVerified && (
+                <TouchableOpacity
+                  onPress={() => handleVerifyHotel(item.id)}
+                  className="bg-green-500 px-4 py-2 rounded-md"
+                >
+                  <Text className="text-white font-semibold">Verify</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
+        
+        {item.certificate && (
+          <TouchableOpacity
+            onPress={() => {
+              setSelectedImage(item.certificate);
+              setImageModalVisible(true);
+            }}
+            className="mt-3 bg-blue-500 py-2 px-4 rounded-md flex-row items-center justify-center"
+          >
+            <Ionicons name="eye" size={20} color="white" />
+            <Text className="text-white font-semibold ml-2">View Certificate</Text>
+          </TouchableOpacity>
+        )}
       </View>
-      
-      {item.certificate && (
-        <TouchableOpacity
-          onPress={() => {
-            setSelectedImage(item.certificate);
-            setImageModalVisible(true);
-          }}
-          className="mt-3 bg-blue-500 py-2 px-4 rounded-md flex-row items-center justify-center"
-        >
-          <Ionicons name="eye" size={20} color="white" />
-          <Text className="text-white font-semibold ml-2">View Certificate</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+    );
+  };
 
   // Update the renderItem function to handle all types
   const renderItem = ({ item }: { item: ListItem }) => {
@@ -354,11 +368,20 @@ const Admin = () => {
           <View className="flex-1 justify-center items-center">
             <Image
               source={{
-                uri: selectedImage
-                  ? `${API_BASE_URL.replace('/api', '')}/uploads/${
-                      selectedTab === "guides" ? "guides" : "hotels"
-                    }/${selectedImage}`
-                  : "",
+                uri: (() => {
+                  let imageUrl = selectedImage;
+                  if (imageUrl) {
+                    if (!imageUrl.startsWith("http")) {
+                      imageUrl = imageUrl.startsWith("/") ? imageUrl.slice(1) : imageUrl;
+                      imageUrl = imageUrl.replace(
+                        "uploads",
+                        selectedTab === "guides" ? "guideVerification" : "hotelVerification"
+                      );
+                      imageUrl = `${API_BASE_URL}/${imageUrl}`;
+                    }
+                  }
+                  return imageUrl;
+                })(),
               }}
               className="w-full h-full"
               resizeMode="contain"
