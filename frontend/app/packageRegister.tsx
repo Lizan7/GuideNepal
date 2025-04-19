@@ -166,7 +166,7 @@ const PackageRegister = () => {
   return (
     <KeyboardAvoidingView 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-white"
+      className="flex-1 bg-white" 
     >
       <ScrollView className="flex-1">
         {/* Header */}
