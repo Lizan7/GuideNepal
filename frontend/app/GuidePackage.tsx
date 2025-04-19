@@ -60,7 +60,7 @@ const GuidePackage = () => {
   const fetchPackages = async () => {
     try {
       setLoading(true);
-      const apiUrl = `${API_BASE_URL}/package/all`;
+      const apiUrl = `${API_BASE_URL}/package`;
       console.log('Fetching packages from:', apiUrl);
       
       const response = await fetch(apiUrl, {
@@ -109,12 +109,9 @@ const GuidePackage = () => {
             // Check if the image URL is already a full URL
             if (pkg.image.startsWith('http://') || pkg.image.startsWith('https://')) {
               imageUrl = pkg.image;
-            } else if (pkg.image.startsWith('/')) {
-              // If it starts with a slash, it's a relative path
-              imageUrl = `${API_BASE_URL}${pkg.image}`;
             } else {
-              // Otherwise, assume it's a relative path without a leading slash
-              imageUrl = `${API_BASE_URL}/${pkg.image}`;
+              // Construct the full URL with the API base URL
+              imageUrl = `${API_BASE_URL}/uploads/${pkg.image}`;
             }
             
             console.log(`Package ${pkg.id} image URL: ${imageUrl}`);
