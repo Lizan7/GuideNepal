@@ -2,10 +2,11 @@ import { Stack } from "expo-router";
 import { StatusBar } from "react-native";
 import "./global.css";
 import Toast from "react-native-toast-message";
+import { NavigationContainer } from "@react-navigation/native";
 
 const Layout = () => {
   return (
-    <>
+    <NavigationContainer>
       {/* Status Bar Configuration */}
       <StatusBar
         barStyle="dark-content"
@@ -40,7 +41,7 @@ const Layout = () => {
 
       {/* Toast Notifications */}
       <Toast />
-    </>
+    </NavigationContainer>
   );
 };
 
