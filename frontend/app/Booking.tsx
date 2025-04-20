@@ -96,6 +96,14 @@ interface RatingData {
   hotelId?: string;
 }
 
+interface Review {
+  id: string;
+  userName: string;
+  review: string;
+  rating: number;
+  createdAt: string;
+}
+
 const Booking = () => {
   const router = useRouter();
   const params = useLocalSearchParams<RouteParams>();
@@ -118,18 +126,16 @@ const Booking = () => {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [bookingType, setBookingType] = useState<string | null>(null);
   const [filterType, setFilterType] = useState("all");
-  const [showDropdown, setShowDropdown] = useState(false);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
   const [numberOfRooms, setNumberOfRooms] = useState(1);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [userRating, setUserRating] = useState<number>(0);
   const [userReview, setUserReview] = useState<string>("");
-  const [allReviews, setAllReviews] = useState<Rating[]>([]);
-  const [reviewModalVisible, setReviewModalVisible] = useState(false);
-  const [submittingReview, setSubmittingReview] = useState(false);
+  const [allReviews, setAllReviews] = useState<Review[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
-  const [averageRating, setAverageRating] = useState<number>(0);
-  const [totalRatings, setTotalRatings] = useState<number>(0);
+  const [averageRating, setAverageRating] = useState(0);
+  const [totalRatings, setTotalRatings] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Add new state for guide details
   const [guideDetails, setGuideDetails] = useState<any>(null);
@@ -247,52 +253,8 @@ const Booking = () => {
   useEffect(() => {
     if (guideId) {
       fetchGuideDetails();
-      fetchRatings("guide", guideId);
-    } else if (hotelId) {
-      fetchRatings("hotel", hotelId);
     }
-  }, [guideId, hotelId]);
-
-  // Add function to fetch ratings
-  const fetchRatings = async (type: string, id: string) => {
-    try {
-      setLoadingReviews(true);
-      const token = await AsyncStorage.getItem("token");
-      
-      if (!token) {
-        console.error("Authentication failed. Please log in again.");
-        return;
-      }
-
-      console.log(`Fetching ${type} ratings for ID:`, id);
-      const response = await axios.get(`${API_BASE_URL}/rate/${type}/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      console.log(`${type} ratings response:`, response.data);
-
-      if (response.data && response.data.success) {
-        setAllReviews(response.data.ratings || []);
-        setAverageRating(response.data.averageRating || 0);
-        setTotalRatings(response.data.totalRatings || 0);
-      } else {
-        console.log(`No ${type} ratings data in response`);
-        setAllReviews([]);
-        setAverageRating(0);
-        setTotalRatings(0);
-      }
-    } catch (error: any) {
-      console.error(`Error fetching ${type} ratings:`, error);
-      if (error.response) {
-        console.error("Error response:", error.response.data);
-      }
-      setAllReviews([]);
-      setAverageRating(0);
-      setTotalRatings(0);
-    } finally {
-      setLoadingReviews(false);
-    }
-  };
+  }, [guideId]);
 
   const handleViewBooking = (booking: Booking, type: string) => {
     setSelectedBooking(booking);
@@ -820,7 +782,42 @@ const Booking = () => {
     }
   };
 
-  // Function to handle review submission
+  useEffect(() => {
+    if (selectedTab === "Reviews") {
+      fetchReviews();
+    }
+  }, [selectedTab]);
+
+  const fetchReviews = async () => {
+    try {
+      setLoadingReviews(true);
+      const token = await AsyncStorage.getItem("token");
+      
+      if (!token) {
+        Alert.alert("Error", "Authentication failed. Please log in again.");
+        return;
+      }
+
+      const response = await axios.get(
+        `${API_BASE_URL}/rate/${guideId ? 'guide' : 'hotel'}/${guideId || hotelId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.data && response.data.success) {
+        setAllReviews(response.data.ratings || []);
+        setAverageRating(response.data.averageRating || 0);
+        setTotalRatings(response.data.totalRatings || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      Alert.alert("Error", "Failed to fetch reviews");
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
   const handleSubmitReview = async () => {
     if (userRating === 0) {
       Alert.alert("Error", "Please select a rating");
@@ -833,7 +830,7 @@ const Booking = () => {
     }
     
     try {
-      setSubmittingReview(true);
+      setIsSubmitting(true);
       const token = await AsyncStorage.getItem("token");
       
       if (!token) {
@@ -841,23 +838,12 @@ const Booking = () => {
         return;
       }
       
-      // Determine if we're rating a guide or hotel
       const ratingData: RatingData = {
         rating: userRating,
         review: userReview.trim(),
+        ...(guideId ? { guideId } : { hotelId }),
       };
       
-      // Add either guideId or hotelId to the request
-      if (guideId) {
-        ratingData.guideId = guideId;
-      } else if (hotelId) {
-        ratingData.hotelId = hotelId;
-      } else {
-        Alert.alert("Error", "No guide or hotel ID found");
-        return;
-      }
-      
-      // Submit the rating to the backend
       const response = await axios.post(
         `${API_BASE_URL}/rate/createRating`,
         ratingData,
@@ -870,18 +856,10 @@ const Booking = () => {
       );
       
       if (response.data && response.data.success) {
-        // Refresh the ratings after successful submission
-        if (guideId) {
-          fetchRatings("guide", guideId);
-        } else if (hotelId) {
-          fetchRatings("hotel", hotelId);
-        }
-        
-        // Reset form and close modal
+        fetchReviews();
         setUserRating(0);
         setUserReview("");
-        setReviewModalVisible(false);
-        
+        setSelectedTab("Reviews");
         Alert.alert("Success", "Your review has been submitted successfully!");
       } else {
         Alert.alert("Error", "Failed to submit review. Please try again later.");
@@ -890,7 +868,7 @@ const Booking = () => {
       console.error("Error submitting review:", error);
       Alert.alert("Error", "Failed to submit review. Please try again later.");
     } finally {
-      setSubmittingReview(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -906,7 +884,7 @@ const Booking = () => {
       <View className="flex-1 bg-gray-50">
         {/* Enhanced Header */}
         <View className="bg-white shadow-sm">
-          <View className="flex-row items-center justify-between px-4 py-6 mt-8">
+          <View className="flex-row items-center justify-between px-2 py-4">
             <TouchableOpacity 
               onPress={() => router.back()}
               className="bg-gray-100 p-2 rounded-full"
@@ -969,7 +947,7 @@ const Booking = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Enhanced Tabs */}
+          {/* Tabs */}
           <View className="mt-8 px-4">
             <View className="flex-row bg-gray-100 p-1 rounded-xl">
               <TouchableOpacity
@@ -1003,8 +981,8 @@ const Booking = () => {
             </View>
           </View>
 
-          {/* About Section */}
-          {selectedTab === "About" && (
+          {/* Content Sections */}
+          {selectedTab === "About" ? (
             <View className="mt-4 px-4 pb-6">
               {loadingGuideDetails ? (
                 <View className="items-center justify-center py-8 bg-white rounded-xl">
@@ -1012,7 +990,7 @@ const Booking = () => {
                   <Text className="mt-3 text-gray-600">Loading guide details...</Text>
                 </View>
               ) : guideDetails ? (
-                <View className="space-y-4">
+                <View className="space-y-4 gap-4">
                   {/* Guide Information Card */}
                   <View className="bg-white p-4 rounded-xl shadow-sm">
                     <View className="flex-row items-center mb-4">
@@ -1081,29 +1059,32 @@ const Booking = () => {
                 </View>
               )}
             </View>
-          )}
-
-          {/* Reviews Section */}
-          {selectedTab === "Reviews" && (
+          ) : selectedTab === "Reviews" ? (
             <View className="mt-4 px-4 pb-6">
-              <View className="flex-row justify-between items-center mb-6">
-                <View>
-                  <Text className="text-xl font-bold text-gray-800">Reviews</Text>
-                  {totalRatings > 0 && (
-                    <View className="flex-row items-center mt-1">
-                      <Text className="text-yellow-500 text-lg mr-2">{"★".repeat(Math.round(averageRating))}</Text>
-                      <Text className="text-gray-600">
-                        ({averageRating.toFixed(1)} • {totalRatings} {totalRatings === 1 ? 'review' : 'reviews'})
-                      </Text>
-                    </View>
-                  )}
+              <View className="bg-white p-4 rounded-xl shadow-sm">
+                <View className="flex-row items-center justify-between mb-4">
+                  <View>
+                    <Text className="text-xl font-bold text-gray-800">Reviews</Text>
+                    {totalRatings > 0 && (
+                      <View className="flex-row items-center mt-1">
+                        <Text className="text-yellow-500 text-lg mr-2">{"★".repeat(Math.round(averageRating))}</Text>
+                        <Text className="text-gray-600">
+                          ({averageRating.toFixed(1)} • {totalRatings} {totalRatings === 1 ? 'review' : 'reviews'})
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <TouchableOpacity 
+                    className="bg-blue-500 px-4 py-2 rounded-lg"
+                    onPress={() => {
+                      setUserRating(0);
+                      setUserReview("");
+                      setSelectedTab("WriteReview");
+                    }}
+                  >
+                    <Text className="text-white font-medium">Write Review</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity 
-                  className="bg-blue-500 px-4 py-2 rounded-lg"
-                  onPress={() => setReviewModalVisible(true)}
-                >
-                  <Text className="text-white font-medium">Write Review</Text>
-                </TouchableOpacity>
               </View>
 
               {loadingReviews ? (
@@ -1112,28 +1093,30 @@ const Booking = () => {
                   <Text className="mt-3 text-gray-600">Loading reviews...</Text>
                 </View>
               ) : allReviews && allReviews.length > 0 ? (
-                <View>
+                <View className="space-y-4">
                   {allReviews.map((item) => (
-                    <View key={item.id} className="bg-white p-4 rounded-xl shadow-sm mb-3">
-                      <View className="flex-row justify-between items-center mb-2">
+                    <View key={item.id} className="bg-white p-4 rounded-xl shadow-sm">
+                      <View className="flex-row justify-between items-center mb-3">
                         <View className="flex-row items-center">
                           <View className="bg-gray-100 w-10 h-10 rounded-full items-center justify-center">
                             <Text className="text-gray-600 font-medium">
                               {item.userName ? item.userName.charAt(0).toUpperCase() : "?"}
                             </Text>
                           </View>
-                          <Text className="font-semibold text-gray-800 ml-3">
-                            {item.userName || "Anonymous"}
-                          </Text>
+                          <View className="ml-3">
+                            <Text className="font-semibold text-gray-800">
+                              {item.userName || "Anonymous"}
+                            </Text>
+                            <Text className="text-gray-400 text-sm">
+                              {new Date(item.createdAt).toLocaleDateString()}
+                            </Text>
+                          </View>
                         </View>
-                        <View className="bg-yellow-50 px-2 py-1 rounded-lg">
+                        <View className="bg-yellow-50 px-3 py-1 rounded-lg">
                           <Text className="text-yellow-600 font-medium">{item.rating} ★</Text>
                         </View>
                       </View>
-                      <Text className="text-gray-700 mt-2">{item.review}</Text>
-                      <Text className="text-gray-400 text-sm mt-3">
-                        {new Date(item.createdAt).toLocaleDateString()}
-                      </Text>
+                      <Text className="text-gray-700">{item.review}</Text>
                     </View>
                   ))}
                 </View>
@@ -1143,6 +1126,61 @@ const Booking = () => {
                   <Text className="mt-3 text-gray-600">No reviews yet</Text>
                 </View>
               )}
+            </View>
+          ) : (
+            <View className="mt-4 px-4 pb-6">
+              <View className="bg-white p-4 rounded-xl shadow-sm">
+                <View className="flex-row items-center justify-between mb-4">
+                  <Text className="text-xl font-bold text-gray-800">Write a Review</Text>
+                  <TouchableOpacity onPress={() => setSelectedTab("Reviews")}>
+                    <Ionicons name="close" size={24} color="#6B7280" />
+                  </TouchableOpacity>
+                </View>
+
+                <View className="mb-6">
+                  <Text className="text-gray-700 font-medium mb-2">Your Rating</Text>
+                  <View className="flex-row justify-center space-x-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <TouchableOpacity
+                        key={star}
+                        onPress={() => setUserRating(star)}
+                      >
+                        <Ionicons
+                          name={star <= userRating ? "star" : "star-outline"}
+                          size={32}
+                          color="#FCD34D"
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View className="mb-6">
+                  <Text className="text-gray-700 font-medium mb-2">Your Review</Text>
+                  <TextInput
+                    className="border border-gray-300 rounded-lg p-3 h-32 text-base"
+                    placeholder="Share your experience..."
+                    multiline
+                    textAlignVertical="top"
+                    value={userReview}
+                    onChangeText={setUserReview}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  className={`bg-blue-500 p-3 rounded-lg items-center ${
+                    isSubmitting ? "opacity-50" : ""
+                  }`}
+                  onPress={handleSubmitReview}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text className="text-white font-medium">Submit Review</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           )}
         </ScrollView>
@@ -1388,94 +1426,6 @@ const Booking = () => {
                 </View>
               </View>
             </TouchableOpacity>
-          </Modal>
-
-          {/* Review Modal */}
-          <Modal
-            visible={reviewModalVisible}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={() => setReviewModalVisible(false)}
-          >
-            <KeyboardAvoidingView 
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-              style={{ flex: 1 }}
-            >
-              <TouchableWithoutFeedback onPress={() => {
-                Keyboard.dismiss();
-                setReviewModalVisible(false);
-              }}>
-                <View className="flex-1 justify-end bg-black bg-opacity-50">
-                  <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                    <View className="bg-white rounded-t-3xl p-6">
-                      <View className="items-center mb-4">
-                        <View className="w-16 h-1 bg-gray-300 rounded-full mb-4" />
-                        <Text className="text-xl font-bold text-gray-800">Write a Review</Text>
-                      </View>
-                      
-                      <ScrollView className="max-h-[70vh]">
-                        <View className="mb-6">
-                          <Text className="text-gray-700 font-medium mb-2">Your Rating</Text>
-                          <View className="flex-row justify-center space-x-2">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <TouchableOpacity 
-                                key={star} 
-                                onPress={() => setUserRating(star)}
-                              >
-                                <Ionicons 
-                                  name={star <= userRating ? "star" : "star-outline"} 
-                                  size={32} 
-                                  color="#FCD34D" 
-                                />
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        </View>
-                        
-                        <View className="mb-6">
-                          <Text className="text-gray-700 font-medium mb-2">Your Review</Text>
-                          <TextInput
-                            className="border border-gray-300 rounded-lg p-3 h-32 text-base"
-                            placeholder="Share your experience..."
-                            multiline
-                            textAlignVertical="top"
-                            value={userReview}
-                            onChangeText={setUserReview}
-                          />
-                        </View>
-                      </ScrollView>
-                      
-                      <View className="flex-row space-x-3 mt-2">
-                        <TouchableOpacity 
-                          className="flex-1 bg-gray-200 p-3 rounded-lg items-center"
-                          onPress={() => {
-                            Keyboard.dismiss();
-                            setReviewModalVisible(false);
-                          }}
-                        >
-                          <Text className="text-gray-700 font-medium">Cancel</Text>
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                          className="flex-1 bg-blue-500 p-3 rounded-lg items-center"
-                          onPress={() => {
-                            Keyboard.dismiss();
-                            handleSubmitReview();
-                          }}
-                          disabled={submittingReview}
-                        >
-                          {submittingReview ? (
-                            <ActivityIndicator color="white" />
-                          ) : (
-                            <Text className="text-white font-medium">Submit</Text>
-                          )}
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </TouchableWithoutFeedback>
-                </View>
-              </TouchableWithoutFeedback>
-            </KeyboardAvoidingView>
           </Modal>
         </View>
       </>
