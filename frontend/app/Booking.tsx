@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  SafeAreaView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams, Stack } from "expo-router";
@@ -110,7 +111,7 @@ const Booking = () => {
   const { guideId, guideName, guideSpecialization, guideImage, hotelId } =
     params;
 
-  // Remove static reviews data
+  // Remove selectedTab state since we're removing tabs
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -120,7 +121,6 @@ const Booking = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [paymentUrl, setPaymentUrl] = useState("");
-  const [selectedTab, setSelectedTab] = useState("About");
   const [guideBookings, setGuideBookings] = useState<Booking[]>([]);
   const [hotelBookings, setHotelBookings] = useState<Booking[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -136,6 +136,7 @@ const Booking = () => {
   const [averageRating, setAverageRating] = useState(0);
   const [totalRatings, setTotalRatings] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showWriteReview, setShowWriteReview] = useState(false);
 
   // Add new state for guide details
   const [guideDetails, setGuideDetails] = useState<any>(null);
@@ -180,8 +181,6 @@ const Booking = () => {
       console.log("API Response:", response.data);
 
       if (response.data && response.data.bookings) {
-        console.log("Guide Bookings:", response.data.bookings.guideBookings);
-        console.log("Hotel Bookings:", response.data.bookings.hotelBookings);
         setGuideBookings(response.data.bookings.guideBookings || []);
         setHotelBookings(response.data.bookings.hotelBookings || []);
       } else {
@@ -354,10 +353,8 @@ const Booking = () => {
     }
     
     try {
-      console.log("🟡 Setting isCheckingAvailability to true");
       setIsCheckingAvailability(true);
       
-      console.log("🟡 Getting token from AsyncStorage");
       const token = await AsyncStorage.getItem("token");
       
       if (!token) {
@@ -366,8 +363,6 @@ const Booking = () => {
         return false;
       }
       
-      console.log("🟡 Checking availability for guide ID:", guideId);
-      console.log("🟡 Selected dates:", startDate.toISOString(), "to", endDate.toISOString());
       
       // Format dates for API request
       const formattedStartDate = startDate.toISOString().split('T')[0];
@@ -381,8 +376,6 @@ const Booking = () => {
         endDate: formattedEndDate
       };
       
-      console.log("🟡 Sending availability check request with data:", requestData);
-      console.log("🟡 API URL:", `${API_BASE_URL}/booking/check-availability`);
       
       const response = await axios.post(
         `${API_BASE_URL}/booking/check-availability`,
@@ -395,7 +388,6 @@ const Booking = () => {
         }
       );
 
-      console.log("🟡 Availability check response:", response.data);
       
       if (response.data && response.data.available === false) {
         const existingBooking = response.data.existingBooking;
@@ -782,11 +774,12 @@ const Booking = () => {
     }
   };
 
+  // Modify useEffect to fetch reviews when component mounts
   useEffect(() => {
-    if (selectedTab === "Reviews") {
+    if (guideId || hotelId) {
       fetchReviews();
     }
-  }, [selectedTab]);
+  }, [guideId, hotelId]);
 
   const fetchReviews = async () => {
     try {
@@ -795,6 +788,12 @@ const Booking = () => {
       
       if (!token) {
         Alert.alert("Error", "Authentication failed. Please log in again.");
+        return;
+      }
+
+      // Make sure we have either guideId or hotelId before making the API call
+      if (!guideId && !hotelId) {
+        console.error("No guideId or hotelId available for fetching reviews");
         return;
       }
 
@@ -859,7 +858,7 @@ const Booking = () => {
         fetchReviews();
         setUserRating(0);
         setUserReview("");
-        setSelectedTab("Reviews");
+        setShowWriteReview(false);
         Alert.alert("Success", "Your review has been submitted successfully!");
       } else {
         Alert.alert("Error", "Failed to submit review. Please try again later.");
@@ -873,563 +872,549 @@ const Booking = () => {
   };
 
   return (
-    <>
-      <Stack.Screen 
-        options={{
-          headerShown: false,
-          title: "Booking Details",
-          animation: "slide_from_right"
-        }} 
-      />
-      <View className="flex-1 bg-gray-50">
-        {/* Enhanced Header */}
-        <View className="bg-white shadow-sm">
-          <View className="flex-row items-center justify-between px-2 py-4">
-            <TouchableOpacity 
-              onPress={() => router.back()}
-              className="bg-gray-100 p-2 rounded-full"
-            >
-              <Ionicons name="arrow-back" size={24} color="#374151" />
-            </TouchableOpacity>
-            <Text className="text-xl font-bold text-gray-800">
-              {guideId ? "Guide Details" : "Hotel Details"}
-            </Text>
-            <View className="w-10" />
+    <SafeAreaView className="flex-1 bg-gray-50">
+      {/* Header */}
+      <View className="bg-white shadow-sm">
+        <View className="flex-row items-center justify-between px-4 py-4">
+          <TouchableOpacity
+            onPress={() => router.replace("/UserHome")}
+            className="bg-gray-100 p-2 rounded-full"
+          >
+            <Ionicons name="arrow-back" size={24} color="#374151" />
+          </TouchableOpacity>
+          <Text className="text-xl font-bold text-gray-800">
+            {guideId ? "Guide Details" : "Hotel Details"}
+          </Text>
+          <View className="w-10" />
+        </View>
+      </View>
+
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Profile Card */}
+        <View className="bg-white mt-4 mx-4 rounded-2xl shadow-sm overflow-hidden">
+          <Image
+            source={{ uri: guideImage }}
+            className="w-full h-64"
+            resizeMode="cover"
+          />
+          <View className="p-4">
+            <Text className="text-2xl font-bold text-gray-800">{guideName}</Text>
+            <View className="flex-row items-center mt-1">
+              <Ionicons name="briefcase-outline" size={18} color="#6B7280" />
+              <Text className="text-gray-600 ml-2">{guideSpecialization}</Text>
+            </View>
+            
+            {/* Rating Summary */}
+            {totalRatings > 0 && (
+              <View className="flex-row items-center mt-3 bg-gray-50 p-3 rounded-lg">
+                <View className="flex-row items-center">
+                  <Text className="text-2xl font-bold text-yellow-500">{averageRating.toFixed(1)}</Text>
+                  <Text className="text-yellow-500 ml-1">★</Text>
+                </View>
+                <Text className="text-gray-600 ml-2">
+                  ({totalRatings} {totalRatings === 1 ? 'review' : 'reviews'})
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-          {/* Enhanced Profile Card */}
-          <View className="bg-white mt-4 mx-4 rounded-2xl shadow-sm overflow-hidden">
-            <Image
-              source={{ uri: guideImage }}
-              className="w-full h-64"
-              resizeMode="cover"
-            />
-            <View className="p-4">
-              <Text className="text-2xl font-bold text-gray-800">{guideName}</Text>
-              <View className="flex-row items-center mt-1">
-                <Ionicons name="briefcase-outline" size={18} color="#6B7280" />
-                <Text className="text-gray-600 ml-2">{guideSpecialization}</Text>
-              </View>
-              
-              {/* Rating Summary */}
-              {totalRatings > 0 && (
-                <View className="flex-row items-center mt-3 bg-gray-50 p-3 rounded-lg">
-                  <View className="flex-row items-center">
-                    <Text className="text-2xl font-bold text-yellow-500">{averageRating.toFixed(1)}</Text>
-                    <Text className="text-yellow-500 ml-1">★</Text>
-                  </View>
-                  <Text className="text-gray-600 ml-2">
-                    ({totalRatings} {totalRatings === 1 ? 'review' : 'reviews'})
-                  </Text>
-                </View>
-              )}
+        {/* Action Buttons */}
+        <View className="flex-row justify-between mx-4 mt-6">
+          <TouchableOpacity
+            className="flex-1 bg-white mr-2 py-4 rounded-xl shadow-sm flex-row items-center justify-center"
+            onPress={startChat}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={24} color="#4B5563" />
+            <Text className="text-gray-700 font-semibold text-lg ml-2">Chat</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            className="flex-1 bg-blue-500 ml-2 py-4 rounded-xl shadow-sm flex-row items-center justify-center"
+            onPress={() => setModalVisible(true)}
+          >
+            <Ionicons name="calendar-outline" size={24} color="white" />
+            <Text className="text-white font-semibold text-lg ml-2">Book Now</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* About Section */}
+        <View className="mt-8 px-4">
+          {loadingGuideDetails ? (
+            <View className="items-center justify-center py-8 bg-white rounded-xl">
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text className="mt-3 text-gray-600">Loading guide details...</Text>
             </View>
-          </View>
-
-          {/* Action Buttons */}
-          <View className="flex-row justify-between mx-4 mt-6">
-            <TouchableOpacity
-              className="flex-1 bg-white mr-2 py-4 rounded-xl shadow-sm flex-row items-center justify-center"
-              onPress={startChat}
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={24} color="#4B5563" />
-              <Text className="text-gray-700 font-semibold text-lg ml-2">Chat</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-1 bg-blue-500 ml-2 py-4 rounded-xl shadow-sm flex-row items-center justify-center"
-              onPress={() => setModalVisible(true)}
-            >
-              <Ionicons name="calendar-outline" size={24} color="white" />
-              <Text className="text-white font-semibold text-lg ml-2">Book Now</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Tabs */}
-          <View className="mt-8 px-4">
-            <View className="flex-row bg-gray-100 p-1 rounded-xl">
-              <TouchableOpacity
-                className={`flex-1 py-3 ${
-                  selectedTab === "About" 
-                  ? "bg-white rounded-lg shadow-sm" 
-                  : ""
-                }`}
-                onPress={() => setSelectedTab("About")}
-              >
-                <Text className={`text-center font-semibold ${
-                  selectedTab === "About" 
-                  ? "text-blue-500" 
-                  : "text-gray-600"
-                }`}>About</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className={`flex-1 py-3 ${
-                  selectedTab === "Reviews" 
-                  ? "bg-white rounded-lg shadow-sm" 
-                  : ""
-                }`}
-                onPress={() => setSelectedTab("Reviews")}
-              >
-                <Text className={`text-center font-semibold ${
-                  selectedTab === "Reviews" 
-                  ? "text-blue-500" 
-                  : "text-gray-600"
-                }`}>Reviews</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Content Sections */}
-          {selectedTab === "About" ? (
-            <View className="mt-4 px-4 pb-6">
-              {loadingGuideDetails ? (
-                <View className="items-center justify-center py-8 bg-white rounded-xl">
-                  <ActivityIndicator size="large" color="#3B82F6" />
-                  <Text className="mt-3 text-gray-600">Loading guide details...</Text>
-                </View>
-              ) : guideDetails ? (
-                <View className="space-y-4 gap-4">
-                  {/* Guide Information Card */}
-                  <View className="bg-white p-4 rounded-xl shadow-sm">
-                    <View className="flex-row items-center mb-4">
-                      <View className="bg-blue-100 p-2 rounded-full">
-                        <Ionicons name="person-outline" size={20} color="#3B82F6" />
-                      </View>
-                      <Text className="text-lg font-bold text-gray-800 ml-3">Guide Information</Text>
-                    </View>
-                    <View className="space-y-3">
-                      <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
-                        <Text className="text-gray-600">Name</Text>
-                        <Text className="text-gray-800 font-medium">{guideDetails.name || guideName}</Text>
-                      </View>
-                      <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
-                        <Text className="text-gray-600">Specialization</Text>
-                        <Text className="text-gray-800 font-medium">{guideDetails.specialization || guideSpecialization}</Text>
-                      </View>
-                      <View className="flex-row justify-between items-center py-2">
-                        <Text className="text-gray-600">Location</Text>
-                        <Text className="text-gray-800 font-medium">{guideDetails.location || "Not specified"}</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* Contact Information Card */}
-                  <View className="bg-white p-4 rounded-xl shadow-sm">
-                    <View className="flex-row items-center mb-4">
-                      <View className="bg-green-100 p-2 rounded-full">
-                        <Ionicons name="call-outline" size={20} color="#059669" />
-                      </View>
-                      <Text className="text-lg font-bold text-gray-800 ml-3">Contact Details</Text>
-                    </View>
-                    <View className="space-y-3">
-                      <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
-                        <Text className="text-gray-600">Phone</Text>
-                        <Text className="text-gray-800 font-medium">{guideDetails.phoneNumber || "Not specified"}</Text>
-                      </View>
-                      <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
-                        <Text className="text-gray-600">Email</Text>
-                        <Text className="text-gray-800 font-medium">{guideDetails.email || "Not specified"}</Text>
-                      </View>
-                      <View className="flex-row justify-between items-center py-2">
-                        <Text className="text-gray-600">Charge per Day</Text>
-                        <Text className="text-blue-600 font-bold">{guideDetails.charge ? `Rs. ${guideDetails.charge}` : "Not specified"}</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* About Section Card */}
-                  {guideDetails.about && (
-                    <View className="bg-white p-4 rounded-xl shadow-sm">
-                      <View className="flex-row items-center mb-4">
-                        <View className="bg-purple-100 p-2 rounded-full">
-                          <Ionicons name="information-circle-outline" size={20} color="#7C3AED" />
-                        </View>
-                        <Text className="text-lg font-bold text-gray-800 ml-3">About</Text>
-                      </View>
-                      <Text className="text-gray-700 leading-relaxed">{guideDetails.about}</Text>
-                    </View>
-                  )}
-                </View>
-              ) : (
-                <View className="items-center justify-center py-8 bg-white rounded-xl">
-                  <Ionicons name="alert-circle-outline" size={40} color="#9CA3AF" />
-                  <Text className="mt-3 text-gray-600">No guide details available</Text>
-                </View>
-              )}
-            </View>
-          ) : selectedTab === "Reviews" ? (
-            <View className="mt-4 px-4 pb-6">
+          ) : guideDetails ? (
+            <View className="gap-2">
+              {/* Guide Information Card */}
               <View className="bg-white p-4 rounded-xl shadow-sm">
-                <View className="flex-row items-center justify-between mb-4">
-                  <View>
-                    <Text className="text-xl font-bold text-gray-800">Reviews</Text>
-                    {totalRatings > 0 && (
-                      <View className="flex-row items-center mt-1">
-                        <Text className="text-yellow-500 text-lg mr-2">{"★".repeat(Math.round(averageRating))}</Text>
-                        <Text className="text-gray-600">
-                          ({averageRating.toFixed(1)} • {totalRatings} {totalRatings === 1 ? 'review' : 'reviews'})
-                        </Text>
-                      </View>
-                    )}
+                <View className="flex-row items-center mb-4">
+                  <View className="bg-blue-100 p-2 rounded-full">
+                    <Ionicons name="person-outline" size={20} color="#3B82F6" />
                   </View>
-                  <TouchableOpacity 
-                    className="bg-blue-500 px-4 py-2 rounded-lg"
-                    onPress={() => {
-                      setUserRating(0);
-                      setUserReview("");
-                      setSelectedTab("WriteReview");
-                    }}
-                  >
-                    <Text className="text-white font-medium">Write Review</Text>
-                  </TouchableOpacity>
+                  <Text className="text-lg font-bold text-gray-800 ml-3">Guide Information</Text>
+                </View>
+                <View className="space-y-3">
+                  <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
+                    <Text className="text-gray-600">Name</Text>
+                    <Text className="text-gray-800 font-medium">{guideDetails.name || guideName}</Text>
+                  </View>
+                  <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
+                    <Text className="text-gray-600">Specialization</Text>
+                    <Text className="text-gray-800 font-medium">{guideDetails.specialization || guideSpecialization}</Text>
+                  </View>
+                  <View className="flex-row justify-between items-center py-2">
+                    <Text className="text-gray-600">Location</Text>
+                    <Text className="text-gray-800 font-medium">{guideDetails.location || "Not specified"}</Text>
+                  </View>
                 </View>
               </View>
 
-              {loadingReviews ? (
-                <View className="items-center justify-center py-8 bg-white rounded-xl">
-                  <ActivityIndicator size="large" color="#3B82F6" />
-                  <Text className="mt-3 text-gray-600">Loading reviews...</Text>
+              {/* Contact Information Card */}
+              <View className="bg-white p-4 rounded-xl shadow-sm">
+                <View className="flex-row items-center mb-4">
+                  <View className="bg-green-100 p-2 rounded-full">
+                    <Ionicons name="call-outline" size={20} color="#059669" />
+                  </View>
+                  <Text className="text-lg font-bold text-gray-800 ml-3">Contact Details</Text>
                 </View>
-              ) : allReviews && allReviews.length > 0 ? (
-                <View className="space-y-4">
-                  {allReviews.map((item) => (
-                    <View key={item.id} className="bg-white p-4 rounded-xl shadow-sm">
-                      <View className="flex-row justify-between items-center mb-3">
-                        <View className="flex-row items-center">
-                          <View className="bg-gray-100 w-10 h-10 rounded-full items-center justify-center">
-                            <Text className="text-gray-600 font-medium">
-                              {item.userName ? item.userName.charAt(0).toUpperCase() : "?"}
-                            </Text>
-                          </View>
-                          <View className="ml-3">
-                            <Text className="font-semibold text-gray-800">
-                              {item.userName || "Anonymous"}
-                            </Text>
-                            <Text className="text-gray-400 text-sm">
-                              {new Date(item.createdAt).toLocaleDateString()}
-                            </Text>
-                          </View>
-                        </View>
-                        <View className="bg-yellow-50 px-3 py-1 rounded-lg">
-                          <Text className="text-yellow-600 font-medium">{item.rating} ★</Text>
-                        </View>
-                      </View>
-                      <Text className="text-gray-700">{item.review}</Text>
+                <View className="space-y-3">
+                  <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
+                    <Text className="text-gray-600">Phone</Text>
+                    <Text className="text-gray-800 font-medium">{guideDetails.phoneNumber || "Not specified"}</Text>
+                  </View>
+                  <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
+                    <Text className="text-gray-600">Email</Text>
+                    <Text className="text-gray-800 font-medium">{guideDetails.email || "Not specified"}</Text>
+                  </View>
+                  <View className="flex-row justify-between items-center py-2">
+                    <Text className="text-gray-600">Charge per Day</Text>
+                    <Text className="text-blue-600 font-bold">{guideDetails.charge ? `Rs. ${guideDetails.charge}` : "Not specified"}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* About Section Card */}
+              {guideDetails.about && (
+                <View className="bg-white p-4 rounded-xl shadow-sm">
+                  <View className="flex-row items-center mb-4">
+                    <View className="bg-purple-100 p-2 rounded-full">
+                      <Ionicons name="information-circle-outline" size={20} color="#7C3AED" />
                     </View>
-                  ))}
-                </View>
-              ) : (
-                <View className="items-center justify-center py-8 bg-white rounded-xl">
-                  <Ionicons name="star-outline" size={40} color="#9CA3AF" />
-                  <Text className="mt-3 text-gray-600">No reviews yet</Text>
+                    <Text className="text-lg font-bold text-gray-800 ml-3">About</Text>
+                  </View>
+                  <Text className="text-gray-700 leading-relaxed">{guideDetails.about}</Text>
                 </View>
               )}
             </View>
           ) : (
-            <View className="mt-4 px-4 pb-6">
-              <View className="bg-white p-4 rounded-xl shadow-sm">
-                <View className="flex-row items-center justify-between mb-4">
-                  <Text className="text-xl font-bold text-gray-800">Write a Review</Text>
-                  <TouchableOpacity onPress={() => setSelectedTab("Reviews")}>
-                    <Ionicons name="close" size={24} color="#6B7280" />
+            <View className="items-center justify-center py-8 bg-white rounded-xl">
+              <Ionicons name="alert-circle-outline" size={40} color="#9CA3AF" />
+              <Text className="mt-3 text-gray-600">No guide details available</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Reviews Section */}
+        <View className="mt-8 px-4 pb-6 gap-4">
+          <View className="bg-white p-4 rounded-xl shadow-sm">
+            <View className="flex-row items-center justify-between mb-4">
+              <View>
+                <Text className="text-xl font-bold text-gray-800">Reviews</Text>
+                {totalRatings > 0 && (
+                  <View className="flex-row items-center mt-1">
+                    <Text className="text-yellow-500 text-lg mr-2">{"★".repeat(Math.round(averageRating))}</Text>
+                    <Text className="text-gray-600">
+                      ({averageRating.toFixed(1)} • {totalRatings} {totalRatings === 1 ? 'review' : 'reviews'})
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <TouchableOpacity 
+                className="bg-blue-500 px-4 py-2 rounded-lg"
+                onPress={() => setShowWriteReview(true)}
+              >
+                <Text className="text-white font-medium">Write Review</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {loadingReviews ? (
+            <View className="items-center justify-center py-8 bg-white rounded-xl">
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text className="mt-3 text-gray-600">Loading reviews...</Text>
+            </View>
+          ) : allReviews && allReviews.length > 0 ? (
+            <View className="flex gap-2">
+              {allReviews.map((item) => (
+                <View key={item.id} className="bg-white p-4 rounded-xl shadow-sm">
+                  <View className="flex-row justify-between items-center mb-3">
+                    <View className="flex-row items-center">
+                      <View className="bg-gray-100 w-10 h-10 rounded-full items-center justify-center">
+                        <Text className="text-gray-600 font-medium">
+                          {item.userName ? item.userName.charAt(0).toUpperCase() : "?"}
+                        </Text>
+                      </View>
+                      <View className="ml-3">
+                        <Text className="font-semibold text-gray-800">
+                          {item.userName || "Anonymous"}
+                        </Text>
+                        <Text className="text-gray-400 text-sm">
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    </View>
+                    <View className="bg-yellow-50 px-3 py-1 rounded-lg">
+                      <Text className="text-yellow-600 font-medium">{item.rating} ★</Text>
+                    </View>
+                  </View>
+                  <Text className="text-gray-700">{item.review}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View className="items-center justify-center py-8 bg-white rounded-xl">
+              <Ionicons name="star-outline" size={40} color="#9CA3AF" />
+              <Text className="mt-3 text-gray-600">No reviews yet</Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Write Review Modal */}
+      <Modal
+        visible={showWriteReview}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => {
+          setShowWriteReview(false);
+          Keyboard.dismiss();
+        }}
+      >
+        <TouchableWithoutFeedback onPress={() => {
+          setShowWriteReview(false);
+          Keyboard.dismiss();
+        }}>
+          <View className="flex-1 justify-center items-center bg-black/50">
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <KeyboardAvoidingView 
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                className="w-11/12"
+              >
+                <View className="bg-white p-6 rounded-2xl">
+                  <View className="flex-row items-center justify-between mb-4">
+                    <Text className="text-xl font-bold text-gray-800">Write a Review</Text>
+                    <TouchableOpacity 
+                      onPress={() => {
+                        setShowWriteReview(false);
+                        Keyboard.dismiss();
+                      }}
+                    >
+                      <Ionicons name="close" size={24} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View className="mb-6">
+                    <Text className="text-gray-700 font-medium mb-2">Your Rating</Text>
+                    <View className="flex-row justify-center space-x-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <TouchableOpacity
+                          key={star}
+                          onPress={() => setUserRating(star)}
+                        >
+                          <Ionicons
+                            name={star <= userRating ? "star" : "star-outline"}
+                            size={32}
+                            color="#FCD34D"
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View className="mb-6 gap-2">
+                    <Text className="text-gray-700 font-medium mb-2">Your Review</Text>
+                    <TextInput
+                      className="border border-gray-300 rounded-lg p-3 h-32 text-base gap-2"
+                      placeholder="Share your experience..."
+                      placeholderTextColor="#6B7280"
+                      multiline
+                      textAlignVertical="top"
+                      value={userReview}
+                      onChangeText={setUserReview}
+                      returnKeyType="done"
+                      onSubmitEditing={() => Keyboard.dismiss()}
+                    />
+                  </View>
+
+                  <TouchableOpacity
+                    className={`bg-blue-500 p-3 rounded-lg items-center ${
+                      isSubmitting ? "opacity-50" : ""
+                    }`}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      handleSubmitReview();
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator color="white" />
+                    ) : (
+                      <Text className="text-white font-medium">Submit Review</Text>
+                    )}
                   </TouchableOpacity>
                 </View>
+              </KeyboardAvoidingView>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
-                <View className="mb-6">
-                  <Text className="text-gray-700 font-medium mb-2">Your Rating</Text>
-                  <View className="flex-row justify-center space-x-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <TouchableOpacity
-                        key={star}
-                        onPress={() => setUserRating(star)}
-                      >
-                        <Ionicons
-                          name={star <= userRating ? "star" : "star-outline"}
-                          size={32}
-                          color="#FCD34D"
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+      {/* ✅ Booking Modal */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+          <View className="flex-1 justify-center items-center bg-blue-300 bg-opacity-50">
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View className="bg-white p-6 rounded-lg w-11/12">
+                <Text className="text-xl font-bold text-center">
+                    {hotelId ? "Book Hotel Room" : "Book Guide"}
+                </Text>
+
+                {/* Start & End Date Picker */}
+                <View className="mt-4">
+                  <Text className="text-lg font-semibold">Start Date</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowStartPicker(true)}
+                    className="p-3 border border-gray-300 rounded-md mt-2"
+                  >
+                    <Text className="text-gray-700">
+                      {startDate.toDateString()}
+                    </Text>
+                  </TouchableOpacity>
+                  {showStartPicker && (
+                    <DateTimePicker
+                      value={startDate}
+                      mode="date"
+                      display="default"
+                      onChange={(event, selectedDate) => {
+                        setShowStartPicker(false);
+                        if (selectedDate) setStartDate(selectedDate);
+                      }}
+                    />
+                  )}
                 </View>
 
-                <View className="mb-6">
-                  <Text className="text-gray-700 font-medium mb-2">Your Review</Text>
-                  <TextInput
-                    className="border border-gray-300 rounded-lg p-3 h-32 text-base"
-                    placeholder="Share your experience..."
-                    multiline
-                    textAlignVertical="top"
-                    value={userReview}
-                    onChangeText={setUserReview}
-                  />
+                {/* End Date Picker */}
+                <View className="mt-4">
+                  <Text className="text-lg font-semibold">End Date</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowEndPicker(true)}
+                    className="p-3 border border-gray-300 rounded-md mt-2"
+                  >
+                    <Text className="text-gray-700">
+                      {endDate.toDateString()}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showEndPicker && (
+                    <DateTimePicker
+                      value={endDate}
+                      mode="date"
+                      display="default"
+                      onChange={(event, selectedDate) => {
+                        setShowEndPicker(false);
+                        if (selectedDate) {
+                          setEndDate(selectedDate);
+                        }
+                      }}
+                    />
+                  )}
                 </View>
 
+                  {/* Room Selection for Hotels */}
+                  {hotelId && (
+                    <View className="mt-4">
+                      <Text className="text-lg font-semibold">
+                        Number of Rooms
+                      </Text>
+                      <View className="flex-row items-center justify-between mt-2">
+                        <TouchableOpacity
+                          onPress={() =>
+                            setNumberOfRooms(Math.max(1, numberOfRooms - 1))
+                          }
+                          className="bg-gray-200 p-3 rounded-l-md"
+                        >
+                          <Ionicons name="remove" size={24} color="black" />
+                        </TouchableOpacity>
+                        <Text className="text-lg font-semibold mx-4">
+                          {numberOfRooms}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => setNumberOfRooms(numberOfRooms + 1)}
+                          className="bg-gray-200 p-3 rounded-r-md"
+                        >
+                          <Ionicons name="add" size={24} color="black" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                {/* Khalti Payment Button */}
                 <TouchableOpacity
-                  className={`bg-blue-500 p-3 rounded-lg items-center ${
-                    isSubmitting ? "opacity-50" : ""
-                  }`}
-                  onPress={handleSubmitReview}
-                  disabled={isSubmitting}
+                    disabled={loading || isCheckingAvailability}
+                    className={`mt-6 p-3 rounded-lg items-center ${
+                      loading || isCheckingAvailability ? "bg-gray-400" : "bg-green-600"
+                    }`}
+                  onPress={handleKhaltiPayment}
                 >
-                  {isSubmitting ? (
+                    {loading || isCheckingAvailability ? (
                     <ActivityIndicator color="white" />
                   ) : (
-                    <Text className="text-white font-medium">Submit Review</Text>
+                    <Text className="text-white font-bold">
+                      Pay with Khalti
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>
-            </View>
-          )}
-        </ScrollView>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
-        {/* ✅ Booking Modal */}
+      {/* ✅ Khalti Payment Modal */}
+      <Modal
+        visible={paymentModalVisible}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={() => setPaymentModalVisible(false)}
+      >
+        <WebView
+          source={{ uri: paymentUrl }}
+          onNavigationStateChange={(navState) => {
+            console.log("Navigating to:", navState.url);
+              
+              // Check if the URL contains the payment verification endpoint
+              if (navState.url.includes("/payment/verify-payment") || 
+                  navState.url.includes("/khalti/verify-payment")) {
+                
+                // Extract pidx from URL if available
+                const pidxMatch = navState.url.match(/[?&]pidx=([^&]+)/);
+                if (pidxMatch && pidxMatch[1]) {
+                  setPidx(pidxMatch[1]);
+                }
+                
+                // Extract status from URL if available
+                const statusMatch = navState.url.match(/[?&]status=([^&]+)/);
+                if (statusMatch && statusMatch[1] === "Completed" && !bookingConfirmed) {
+                  setPaymentModalVisible(false);
+                  setBookingConfirmed(true);
+                  
+                  // Call the appropriate confirmation function based on booking type
+                  if (guideId) {
+                    confirmBooking();
+                  } else if (hotelId) {
+                    confirmHotelBooking();
+                  }
+                }
+            }
+          }}
+        />
+        <TouchableOpacity
+          className="absolute top-10 right-5 p-3 rounded-full"
+          onPress={() => setPaymentModalVisible(false)}
+        >
+          <Ionicons name="close" size={24} color="black" />
+        </TouchableOpacity>
+      </Modal>
+
+        {/* Booking Details Modal */}
         <Modal
-          visible={modalVisible}
+          visible={showBookingDetails}
           transparent={true}
           animationType="slide"
-          onRequestClose={() => setModalVisible(false)}
+          onRequestClose={() => setShowBookingDetails(false)}
         >
-          <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
-            <View className="flex-1 justify-center items-center bg-blue-300 bg-opacity-50">
-              <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-                <View className="bg-white p-6 rounded-lg w-11/12">
-                  <Text className="text-xl font-bold text-center">
-                      {hotelId ? "Book Hotel Room" : "Book Guide"}
-                  </Text>
-
-                  {/* Start & End Date Picker */}
-                  <View className="mt-4">
-                    <Text className="text-lg font-semibold">Start Date</Text>
-                    <TouchableOpacity
-                      onPress={() => setShowStartPicker(true)}
-                      className="p-3 border border-gray-300 rounded-md mt-2"
-                    >
-                      <Text className="text-gray-700">
-                        {startDate.toDateString()}
-                      </Text>
-                    </TouchableOpacity>
-                    {showStartPicker && (
-                      <DateTimePicker
-                        value={startDate}
-                        mode="date"
-                        display="default"
-                        onChange={(event, selectedDate) => {
-                          setShowStartPicker(false);
-                          if (selectedDate) setStartDate(selectedDate);
-                        }}
-                      />
-                    )}
-                  </View>
-
-                  {/* End Date Picker */}
-                  <View className="mt-4">
-                    <Text className="text-lg font-semibold">End Date</Text>
-                    <TouchableOpacity
-                      onPress={() => setShowEndPicker(true)}
-                      className="p-3 border border-gray-300 rounded-md mt-2"
-                    >
-                      <Text className="text-gray-700">
-                        {endDate.toDateString()}
-                      </Text>
-                    </TouchableOpacity>
-
-                    {showEndPicker && (
-                      <DateTimePicker
-                        value={endDate}
-                        mode="date"
-                        display="default"
-                        onChange={(event, selectedDate) => {
-                          setShowEndPicker(false);
-                          if (selectedDate) {
-                            setEndDate(selectedDate);
-                          }
-                        }}
-                      />
-                    )}
-                  </View>
-
-                    {/* Room Selection for Hotels */}
-                    {hotelId && (
-                      <View className="mt-4">
-                        <Text className="text-lg font-semibold">
-                          Number of Rooms
-                        </Text>
-                        <View className="flex-row items-center justify-between mt-2">
-                          <TouchableOpacity
-                            onPress={() =>
-                              setNumberOfRooms(Math.max(1, numberOfRooms - 1))
-                            }
-                            className="bg-gray-200 p-3 rounded-l-md"
-                          >
-                            <Ionicons name="remove" size={24} color="black" />
-                          </TouchableOpacity>
-                          <Text className="text-lg font-semibold mx-4">
-                            {numberOfRooms}
-                          </Text>
-                          <TouchableOpacity
-                            onPress={() => setNumberOfRooms(numberOfRooms + 1)}
-                            className="bg-gray-200 p-3 rounded-r-md"
-                          >
-                            <Ionicons name="add" size={24} color="black" />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    )}
-
-                  {/* Khalti Payment Button */}
-                  <TouchableOpacity
-                      disabled={loading || isCheckingAvailability}
-                      className={`mt-6 p-3 rounded-lg items-center ${
-                        loading || isCheckingAvailability ? "bg-gray-400" : "bg-green-600"
-                      }`}
-                    onPress={handleKhaltiPayment}
-                  >
-                      {loading || isCheckingAvailability ? (
-                      <ActivityIndicator color="white" />
-                    ) : (
-                      <Text className="text-white font-bold">
-                        Pay with Khalti
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </TouchableWithoutFeedback>
-            </View>
-          </TouchableWithoutFeedback>
-        </Modal>
-
-        {/* ✅ Khalti Payment Modal */}
-        <Modal
-          visible={paymentModalVisible}
-          transparent={false}
-          animationType="slide"
-          onRequestClose={() => setPaymentModalVisible(false)}
-        >
-          <WebView
-            source={{ uri: paymentUrl }}
-            onNavigationStateChange={(navState) => {
-              console.log("Navigating to:", navState.url);
-                
-                // Check if the URL contains the payment verification endpoint
-                if (navState.url.includes("/payment/verify-payment") || 
-                    navState.url.includes("/khalti/verify-payment")) {
-                  
-                  // Extract pidx from URL if available
-                  const pidxMatch = navState.url.match(/[?&]pidx=([^&]+)/);
-                  if (pidxMatch && pidxMatch[1]) {
-                    setPidx(pidxMatch[1]);
-                  }
-                  
-                  // Extract status from URL if available
-                  const statusMatch = navState.url.match(/[?&]status=([^&]+)/);
-                  if (statusMatch && statusMatch[1] === "Completed" && !bookingConfirmed) {
-                    setPaymentModalVisible(false);
-                    setBookingConfirmed(true);
-                    
-                    // Call the appropriate confirmation function based on booking type
-                    if (guideId) {
-                      confirmBooking();
-                    } else if (hotelId) {
-                      confirmHotelBooking();
-                    }
-                  }
-              }
-            }}
-          />
           <TouchableOpacity
-            className="absolute top-10 right-5 p-3 rounded-full"
-            onPress={() => setPaymentModalVisible(false)}
+            style={{ flex: 1 }}
+            activeOpacity={1}
+            onPress={() => setShowBookingDetails(false)}
           >
-            <Ionicons name="close" size={24} color="black" />
+            <View className="flex-1 justify-end">
+              <View className="bg-white rounded-t-3xl p-6">
+                <View className="items-center mb-6">
+                  <View className="w-16 h-1 bg-gray-300 rounded-full mb-4" />
+                  <Text className="text-xl font-bold">Booking Details</Text>
+                </View>
+
+                {selectedBooking && bookingType ? (
+                  <View>
+                    <View className="flex-row items-center mb-4">
+                      <Image
+                        source={{
+                          uri:
+                            bookingType === "guide"
+                              ? selectedBooking.guide?.profileImage
+                                ? `${API_BASE_URL}/guideVerification/${selectedBooking.guide.profileImage}`
+                                : "https://via.placeholder.com/150"
+                              : selectedBooking.hotel?.hotelProfile
+                              ? `${API_BASE_URL}/uploads/${selectedBooking.hotel.hotelProfile}`
+                              : "https://via.placeholder.com/150",
+                        }}
+                        className="w-20 h-20 rounded-lg"
+                      />
+                      <View className="ml-4">
+                        <Text className="text-lg font-bold">
+                          {bookingType === "guide"
+                            ? selectedBooking.guide?.name ||
+                              selectedBooking.guide?.user?.name ||
+                              "Unknown Guide"
+                            : selectedBooking.hotel?.name || "Unknown Hotel"}
+                        </Text>
+                        <Text className="text-sm text-gray-600">
+                          {bookingType === "guide"
+                            ? selectedBooking.guide?.specialization ||
+                              "No specialization listed"
+                            : selectedBooking.hotel?.location ||
+                              "No location listed"}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text className="text-base mb-2">
+                      <Text className="font-semibold">Booking Dates:</Text>{" "}
+                      {new Date(selectedBooking.startDate).toDateString()} -{" "}
+                      {new Date(selectedBooking.endDate).toDateString()}
+                    </Text>
+                    <Text className="text-base mb-2">
+                      <Text className="font-semibold">Status:</Text>{" "}
+                      <Text
+                        className={`${
+                          selectedBooking.status === "confirmed"
+                            ? "text-green-600"
+                            : selectedBooking.status === "pending"
+                            ? "text-yellow-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {capitalizeFirstLetter(selectedBooking.status)}
+                      </Text>
+                    </Text>
+                  </View>
+                ) : (
+                  <Text>No booking details available.</Text>
+                )}
+              </View>
+            </View>
           </TouchableOpacity>
         </Modal>
+      </SafeAreaView>
+  );
+};
 
-          {/* Booking Details Modal */}
-          <Modal
-            visible={showBookingDetails}
-            transparent={true}
-            animationType="slide"
-            onRequestClose={() => setShowBookingDetails(false)}
-          >
-            <TouchableOpacity
-              style={{ flex: 1 }}
-              activeOpacity={1}
-              onPress={() => setShowBookingDetails(false)}
-            >
-              <View className="flex-1 justify-end">
-                <View className="bg-white rounded-t-3xl p-6">
-                  <View className="items-center mb-6">
-                    <View className="w-16 h-1 bg-gray-300 rounded-full mb-4" />
-                    <Text className="text-xl font-bold">Booking Details</Text>
-                  </View>
-
-                  {selectedBooking && bookingType ? (
-                    <View>
-                      <View className="flex-row items-center mb-4">
-                        <Image
-                          source={{
-                            uri:
-                              bookingType === "guide"
-                                ? selectedBooking.guide?.profileImage
-                                  ? `${API_BASE_URL}/guideVerification/${selectedBooking.guide.profileImage}`
-                                  : "https://via.placeholder.com/150"
-                                : selectedBooking.hotel?.hotelProfile
-                                ? `${API_BASE_URL}/uploads/${selectedBooking.hotel.hotelProfile}`
-                                : "https://via.placeholder.com/150",
-                          }}
-                          className="w-20 h-20 rounded-lg"
-                        />
-                        <View className="ml-4">
-                          <Text className="text-lg font-bold">
-                            {bookingType === "guide"
-                              ? selectedBooking.guide?.name ||
-                                selectedBooking.guide?.user?.name ||
-                                "Unknown Guide"
-                              : selectedBooking.hotel?.name || "Unknown Hotel"}
-                          </Text>
-                          <Text className="text-sm text-gray-600">
-                            {bookingType === "guide"
-                              ? selectedBooking.guide?.specialization ||
-                                "No specialization listed"
-                              : selectedBooking.hotel?.location ||
-                                "No location listed"}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <Text className="text-base mb-2">
-                        <Text className="font-semibold">Booking Dates:</Text>{" "}
-                        {new Date(selectedBooking.startDate).toDateString()} -{" "}
-                        {new Date(selectedBooking.endDate).toDateString()}
-                      </Text>
-                      <Text className="text-base mb-2">
-                        <Text className="font-semibold">Status:</Text>{" "}
-                        <Text
-                          className={`${
-                            selectedBooking.status === "confirmed"
-                              ? "text-green-600"
-                              : selectedBooking.status === "pending"
-                              ? "text-yellow-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {capitalizeFirstLetter(selectedBooking.status)}
-                        </Text>
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text>No booking details available.</Text>
-                  )}
-                </View>
-              </View>
-            </TouchableOpacity>
-          </Modal>
-        </View>
-      </>
-    );
-  };
-
-  export default Booking;
+export default Booking;

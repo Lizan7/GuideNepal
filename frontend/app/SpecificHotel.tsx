@@ -503,144 +503,108 @@ const HotelBooking = () => {
           <Text className="text-white font-semibold text-lg ml-2">Book Now</Text>
         </TouchableOpacity>
 
-        {/* Enhanced Tabs */}
-        <View className="mt-8 px-4">
-          <View className="flex-row bg-gray-100 p-1 rounded-xl">
-          <TouchableOpacity
-              className={`flex-1 py-3 ${
-                selectedTab === "About" 
-                ? "bg-white rounded-lg shadow-sm" 
-                : ""
-            }`}
-            onPress={() => setSelectedTab("About")}
-          >
-              <Text className={`text-center font-semibold ${
-                selectedTab === "About" 
-                ? "text-blue-500" 
-                : "text-gray-600"
-              }`}>About</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-              className={`flex-1 py-3 ${
-                selectedTab === "Reviews" 
-                ? "bg-white rounded-lg shadow-sm" 
-                : ""
-            }`}
-            onPress={() => setSelectedTab("Reviews")}
-          >
-              <Text className={`text-center font-semibold ${
-                selectedTab === "Reviews" 
-                ? "text-blue-500" 
-                : "text-gray-600"
-              }`}>Reviews</Text>
-          </TouchableOpacity>
-          </View>
+        {/* About Section */}
+        <View className="mt-8 px-4 pb-6">
+          {loading ? (
+            <View className="items-center justify-center py-8 bg-white rounded-xl">
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text className="mt-3 text-gray-600">Loading hotel details...</Text>
+            </View>
+          ) : hotelDetails ? (
+            <View className="space-y-4 gap-3">
+              {/* Hotel Information Card */}
+              <View className="bg-white p-4 rounded-xl shadow-sm">
+                <View className="flex-row items-center mb-4 gap-2">
+                  <View className="bg-blue-100 p-2 rounded-full">
+                    <Ionicons name="business-outline" size={20} color="#3B82F6" />
+                  </View>
+                  <Text className="text-lg font-bold text-gray-800 ml-3">Hotel Information</Text>
+                </View>
+                <View className="space-y-3">
+                  <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
+                    <Text className="text-gray-600">Name</Text>
+                    <Text className="text-gray-800 font-medium">{hotelDetails.name || hotelName}</Text>
+                  </View>
+                  <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
+                    <Text className="text-gray-600">Location</Text>
+                    <Text className="text-gray-800 font-medium">{hotelDetails.location || hotelLocation}</Text>
+                  </View>
+                  <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
+                    <Text className="text-gray-600">Available Rooms</Text>
+                    <Text className="text-gray-800 font-medium">{hotelDetails.roomsAvailable || "Not specified"}</Text>
+                  </View>
+                  <View className="flex-row justify-between items-center py-2">
+                    <Text className="text-gray-600">Price per Night</Text>
+                    <Text className="text-blue-600 font-bold">
+                      Rs. {hotelDetails.price || hotelPrice || "Not specified"}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Contact Information Card */}
+              <View className="bg-white p-4 rounded-xl shadow-sm">
+                <View className="flex-row items-center mb-4">
+                  <View className="bg-green-100 p-2 rounded-full">
+                    <Ionicons name="call-outline" size={20} color="#059669" />
+                  </View>
+                  <Text className="text-lg font-bold text-gray-800 ml-3">Contact Information</Text>
+                </View>
+                <View className="space-y-3">
+                  <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
+                    <Text className="text-gray-600">Phone</Text>
+                    <Text className="text-gray-800 font-medium">{hotelDetails.phoneNumber || "Not specified"}</Text>
+                  </View>
+                  <View className="flex-row justify-between items-center py-2">
+                    <Text className="text-gray-600">Email</Text>
+                    <Text className="text-gray-800 font-medium">{hotelDetails.email || "Not specified"}</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Itineraries Card */}
+              <View className="bg-white p-4 rounded-xl shadow-sm">
+                <View className="flex-row items-center mb-4">
+                  <View className="bg-purple-100 p-2 rounded-full">
+                    <Ionicons name="list-outline" size={20} color="#7C3AED" />
+                  </View>
+                  <Text className="text-lg font-bold text-gray-800 ml-3">Itineraries</Text>
+                </View>
+                <Text className="text-gray-700 leading-relaxed">
+                  {hotelDetails.itineraries || "No itineraries specified"}
+                </Text>
+              </View>
+
+              {/* Description Card */}
+              {hotelDetails.description && (
+                <View className="bg-white p-4 rounded-xl shadow-sm">
+                  <View className="flex-row items-center mb-4">
+                    <View className="bg-yellow-100 p-2 rounded-full">
+                      <Ionicons name="information-circle-outline" size={20} color="#D97706" />
+                    </View>
+                    <Text className="text-lg font-bold text-gray-800 ml-3">About</Text>
+                  </View>
+                  <Text className="text-gray-700 leading-relaxed">{hotelDetails.description}</Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View className="items-center justify-center py-8 bg-white rounded-xl">
+              <Ionicons name="alert-circle-outline" size={40} color="#9CA3AF" />
+              <Text className="mt-3 text-gray-600">No hotel details available</Text>
+            </View>
+          )}
         </View>
 
-        {/* About Section */}
-        {selectedTab === "About" && (
-          <View className="mt-4 px-4 pb-6">
-            {loading ? (
-              <View className="items-center justify-center py-8 bg-white rounded-xl">
-                <ActivityIndicator size="large" color="#3B82F6" />
-                <Text className="mt-3 text-gray-600">Loading hotel details...</Text>
-              </View>
-            ) : hotelDetails ? (
-              <View className="space-y-4 gap-3">
-                {/* Hotel Information Card */}
-                <View className="bg-white p-4 rounded-xl shadow-sm">
-                  <View className="flex-row items-center mb-4 gap-2">
-                    <View className="bg-blue-100 p-2 rounded-full">
-                      <Ionicons name="business-outline" size={20} color="#3B82F6" />
-                    </View>
-                    <Text className="text-lg font-bold text-gray-800 ml-3">Hotel Information</Text>
-                  </View>
-                  <View className="space-y-3">
-                    <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
-                      <Text className="text-gray-600">Name</Text>
-                      <Text className="text-gray-800 font-medium">{hotelDetails.name || hotelName}</Text>
-                    </View>
-                    <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
-                      <Text className="text-gray-600">Location</Text>
-                      <Text className="text-gray-800 font-medium">{hotelDetails.location || hotelLocation}</Text>
-                    </View>
-                    <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
-                      <Text className="text-gray-600">Available Rooms</Text>
-                      <Text className="text-gray-800 font-medium">{hotelDetails.roomsAvailable || "Not specified"}</Text>
-                    </View>
-                    <View className="flex-row justify-between items-center py-2">
-                      <Text className="text-gray-600">Price per Night</Text>
-                      <Text className="text-blue-600 font-bold">
-                        Rs. {hotelDetails.price || hotelPrice || "Not specified"}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Contact Information Card */}
-                <View className="bg-white p-4 rounded-xl shadow-sm">
-                  <View className="flex-row items-center mb-4">
-                    <View className="bg-green-100 p-2 rounded-full">
-                      <Ionicons name="call-outline" size={20} color="#059669" />
-                    </View>
-                    <Text className="text-lg font-bold text-gray-800 ml-3">Contact Information</Text>
-                  </View>
-                  <View className="space-y-3">
-                    <View className="flex-row justify-between items-center py-2 border-b border-gray-100">
-                      <Text className="text-gray-600">Phone</Text>
-                      <Text className="text-gray-800 font-medium">{hotelDetails.phoneNumber || "Not specified"}</Text>
-                    </View>
-                    <View className="flex-row justify-between items-center py-2">
-                      <Text className="text-gray-600">Email</Text>
-                      <Text className="text-gray-800 font-medium">{hotelDetails.email || "Not specified"}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Itineraries Card */}
-                <View className="bg-white p-4 rounded-xl shadow-sm">
-                  <View className="flex-row items-center mb-4">
-                    <View className="bg-purple-100 p-2 rounded-full">
-                      <Ionicons name="list-outline" size={20} color="#7C3AED" />
-                    </View>
-                    <Text className="text-lg font-bold text-gray-800 ml-3">Itineraries</Text>
-                  </View>
-                  <Text className="text-gray-700 leading-relaxed">
-                    {hotelDetails.itineraries || "No itineraries specified"}
-            </Text>
-                </View>
-
-                {/* Description Card */}
-                {hotelDetails.description && (
-                  <View className="bg-white p-4 rounded-xl shadow-sm">
-                    <View className="flex-row items-center mb-4">
-                      <View className="bg-yellow-100 p-2 rounded-full">
-                        <Ionicons name="information-circle-outline" size={20} color="#D97706" />
-                      </View>
-                      <Text className="text-lg font-bold text-gray-800 ml-3">About</Text>
-                    </View>
-                    <Text className="text-gray-700 leading-relaxed">{hotelDetails.description}</Text>
-                  </View>
-                )}
-              </View>
-            ) : (
-              <View className="items-center justify-center py-8 bg-white rounded-xl">
-                <Ionicons name="alert-circle-outline" size={40} color="#9CA3AF" />
-                <Text className="mt-3 text-gray-600">No hotel details available</Text>
-              </View>
-            )}
-          </View>
-        )}
-
         {/* Reviews Section */}
-        {selectedTab === "Reviews" && (
-          <View className="mt-4 px-4 pb-6">
-            <View className="flex-row justify-between items-center mb-6">
+        <View className="mt-8 px-4 pb-6">
+          <View className="bg-gradient-to-br from-blue-50 to-white p-6 rounded-2xl shadow-sm">
+            <View className="flex-row items-center justify-between mb-6">
               <View>
-                <Text className="text-xl font-bold text-gray-800">Reviews</Text>
+                <Text className="text-2xl font-bold text-gray-800">Reviews</Text>
                 {totalRatings > 0 && (
-                  <View className="flex-row items-center mt-1">
-                    <Text className="text-yellow-500 text-lg mr-2">{"★".repeat(Math.round(averageRating))}</Text>
+                  <View className="flex-row items-center mt-2">
+                    <Text className="text-yellow-500 text-xl mr-2">{"★".repeat(Math.round(averageRating))}</Text>
                     <Text className="text-gray-600">
                       ({averageRating.toFixed(1)} • {totalRatings} {totalRatings === 1 ? 'review' : 'reviews'})
                     </Text>
@@ -648,52 +612,55 @@ const HotelBooking = () => {
                 )}
               </View>
               <TouchableOpacity 
-                className="bg-blue-500 px-4 py-2 rounded-lg"
+                className="bg-blue-500 px-5 py-2.5 rounded-xl shadow-sm"
                 onPress={() => setReviewModalVisible(true)}
               >
-                <Text className="text-white font-medium">Write Review</Text>
+                <Text className="text-white font-semibold">Write Review</Text>
               </TouchableOpacity>
             </View>
+          </View>
 
-            {loadingRatings ? (
-              <View className="items-center justify-center py-8 bg-white rounded-xl">
-                <ActivityIndicator size="large" color="#3B82F6" />
-                <Text className="mt-3 text-gray-600">Loading reviews...</Text>
-              </View>
-            ) : ratings && ratings.length > 0 ? (
-              <View>
-                {ratings.map((item) => (
-                  <View key={item.id} className="bg-white p-4 rounded-xl shadow-sm mb-3">
-                    <View className="flex-row justify-between items-center mb-2">
-                      <View className="flex-row items-center">
-                        <View className="bg-gray-100 w-10 h-10 rounded-full items-center justify-center">
-                          <Text className="text-gray-600 font-medium">
-                            {item.userName ? item.userName.charAt(0).toUpperCase() : "?"}
-                          </Text>
-                        </View>
-                        <Text className="font-semibold text-gray-800 ml-3">
-                          {item.userName || "Anonymous"}
+          {loadingRatings ? (
+            <View className="items-center justify-center py-8 bg-white rounded-xl">
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text className="mt-3 text-gray-600">Loading reviews...</Text>
+            </View>
+          ) : ratings && ratings.length > 0 ? (
+            <View className="gap-2">
+              {ratings.map((item) => (
+                <View key={item.id} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                  <View className="flex-row justify-between items-start mb-4">
+                    <View className="flex-row items-center">
+                      <View className="bg-blue-100 w-12 h-12 rounded-full items-center justify-center">
+                        <Text className="text-blue-600 font-semibold text-lg">
+                          {item.userName ? item.userName.charAt(0).toUpperCase() : "?"}
                         </Text>
                       </View>
-                      <View className="bg-yellow-50 px-2 py-1 rounded-lg">
-                        <Text className="text-yellow-600 font-medium">{item.rating} ★</Text>
+                      <View className="ml-4">
+                        <Text className="font-semibold text-gray-800 text-lg">
+                          {item.userName || "Anonymous"}
+                        </Text>
+                        <Text className="text-gray-400 text-sm">
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </Text>
                       </View>
                     </View>
-                    <Text className="text-gray-700 mt-2">{item.review}</Text>
-                    <Text className="text-gray-400 text-sm mt-3">
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </Text>
+                    <View className="bg-yellow-50 px-4 py-2 rounded-lg">
+                      <Text className="text-yellow-600 font-semibold">{item.rating} ★</Text>
+                    </View>
                   </View>
-                ))}
-              </View>
-            ) : (
-              <View className="items-center justify-center py-8 bg-white rounded-xl">
-                <Ionicons name="star-outline" size={40} color="#9CA3AF" />
-                <Text className="mt-3 text-gray-600">No reviews yet</Text>
-              </View>
-            )}
-          </View>
-        )}
+                  <Text className="text-gray-700 text-base leading-relaxed">{item.review}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View className="items-center justify-center py-12 bg-white rounded-xl mt-4">
+              <Ionicons name="star-outline" size={48} color="#9CA3AF" />
+              <Text className="mt-4 text-gray-600 text-lg">No reviews yet</Text>
+              <Text className="text-gray-400 text-sm mt-1">Be the first to share your experience</Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       {/* ✅ Booking Modal */}

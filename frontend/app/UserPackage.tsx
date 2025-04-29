@@ -127,9 +127,16 @@ const UserPackage = () => {
 
   const renderPackageCard = (pkg: Package) => {
     const isEnrolled = enrolledPackages.includes(pkg.id);
-    const imageUrl = pkg.image
-      ? `${API_BASE_URL}${pkg.image}`
-      : "https://via.placeholder.com/150";
+    
+    const getImagePath = (path: string | undefined) => {
+      if (!path) return "https://via.placeholder.com/150";
+      
+      const cleanPath = path.replace(/^\/+/, '').replace(/^uploads\//, '');
+      
+      return `${API_BASE_URL}/packageUploads/${cleanPath}`;
+    };
+    
+    const imageUrl = getImagePath(pkg.image);
 
     return (
       <View
@@ -158,7 +165,9 @@ const UserPackage = () => {
           <View className="flex-row items-center mb-2">
             <Ionicons name="time-outline" size={16} color="#6B7280" />
             <Text className="text-gray-600 ml-1">{pkg.duration} days</Text>
-            <View className="mx-2">•</View>
+            <View className="mx-2">
+              <Text className="text-gray-600">•</Text>
+            </View>
             <Ionicons name="people-outline" size={16} color="#6B7280" />
             <Text className="text-gray-600 ml-1">
               {pkg.currentEnrollments}/{pkg.maxPeople} enrolled
@@ -208,8 +217,14 @@ const UserPackage = () => {
 
   return (
     <View className="flex-1 bg-gray-50">
-      <View className="bg-white px-4 py-3 shadow-sm">
-        <Text className="text-xl font-bold text-gray-800">Tour Packages</Text>
+      <View className="px-4 py-4 flex-row items-center">
+          <TouchableOpacity 
+            onPress={() => router.replace("/UserHome")}
+            className="p-2 -ml-2"
+          >
+            <Ionicons name="chevron-back-outline" size={24} color="#374151" />
+          </TouchableOpacity>
+          <Text className="text-xl font-bold text-gray-800">Group Packages</Text>
       </View>
 
       <ScrollView

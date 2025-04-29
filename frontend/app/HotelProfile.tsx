@@ -19,22 +19,26 @@ import API_BASE_URL from "@/config";
 import BottomNavigation from "@/components/BottomNavigation";
 
 interface Hotel {
-  id: number;
-  name: string;
-  email: string;
-  phoneNumber: string;
-  location: string;
-  itineraries: string;
-  roomsAvailable: number;
-  price: number;
-  profileImage: string;
-  certificate: string;
-  isVerified: boolean;
+  id: string;
+  name: string | null;
+  email: string | null;
+  phoneNumber: string | null;
+  specialization: string | null;
+  location: string | null;
+  charge: number | null;
+  roomsAvailable?: number | null;
+  isVerified?: boolean;
   user?: {
-    name: string;
-    email: string;
+    email: string | null;
+    name?: string | null;
   };
 }
+
+// Add navigation path type
+type NavigationPaths = {
+  "/HotelChat": undefined;
+  // Add other paths as needed
+};
 
 const HotelProfile = () => {
   const router = useRouter();
@@ -71,7 +75,8 @@ const HotelProfile = () => {
       console.log("API Base URL:", API_BASE_URL);
 
       try {
-        const response = await axios.get(`${API_BASE_URL}/hotels/profile/details`, {
+        // Use the new profile endpoint to fetch hotel details
+        const response = await axios.get(`${API_BASE_URL}/hotels/profile`, {
           headers: { Authorization: `Bearer ${token.trim()}` },
         });
 
@@ -91,34 +96,8 @@ const HotelProfile = () => {
             if (!imageUrl.startsWith("http")) {
               // Remove any leading slash to avoid double slashes
               imageUrl = imageUrl.startsWith("/") ? imageUrl.slice(1) : imageUrl;
-              // Update the path to use hotelVerification instead of uploads
-              imageUrl = imageUrl.replace("uploads", "hotelVerification");
-              imageUrl = `${API_BASE_URL}/${imageUrl}`;
-            }
-            
-            console.log("Final Image URL:", imageUrl);
-            setProfileImage(imageUrl);
-          } else {
-            console.log("No profile image found in response");
-            setProfileImage("https://via.placeholder.com/100");
-          }
-        } 
-        // Check if the response has a hotels array (alternative response format)
-        else if (response.data && response.data.hotels && response.data.hotels.length > 0) {
-          const hotel = response.data.hotels[0];
-          setHotelData(hotel);
-          
-          // Handle profile image URL
-          if (hotel.profileImage) {
-            let imageUrl = hotel.profileImage;
-            console.log("Original Image URL:", imageUrl);
-            
-            // If the URL doesn't start with http, add the API base URL
-            if (!imageUrl.startsWith("http")) {
-              // Remove any leading slash to avoid double slashes
-              imageUrl = imageUrl.startsWith("/") ? imageUrl.slice(1) : imageUrl;
-              // Update the path to use hotelVerification instead of uploads
-              imageUrl = imageUrl.replace("uploads", "hotelVerification");
+              // Update the path to use hotelUploads instead of uploads
+              imageUrl = imageUrl.replace("uploads", "hotelUploads");
               imageUrl = `${API_BASE_URL}/${imageUrl}`;
             }
             
@@ -131,17 +110,16 @@ const HotelProfile = () => {
         } else {
           // If no data is found, set empty hotel data instead of error
           setHotelData({
-            id: 0,
+            id: "0",
             name: "N/A",
             email: "N/A",
             phoneNumber: "N/A",
+            specialization: "N/A",
             location: "N/A",
-            itineraries: "N/A",
-            roomsAvailable: 0,
-            price: 0,
-            profileImage: "",
-            certificate: "",
-            isVerified: false
+            charge: 0,
+            user: {
+              email: "N/A"
+            }
           });
           setProfileImage("https://via.placeholder.com/100");
         }
@@ -153,17 +131,16 @@ const HotelProfile = () => {
         } else {
           // If hotel not found (404), set empty hotel data
           setHotelData({
-            id: 0,
+            id: "0",
             name: "N/A",
             email: "N/A",
             phoneNumber: "N/A",
+            specialization: "N/A",
             location: "N/A",
-            itineraries: "N/A",
-            roomsAvailable: 0,
-            price: 0,
-            profileImage: "",
-            certificate: "",
-            isVerified: false
+            charge: 0,
+            user: {
+              email: "N/A"
+            }
           });
           setProfileImage("https://via.placeholder.com/100");
         }
@@ -207,12 +184,10 @@ const HotelProfile = () => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          name: hotelData.name,
-          email: hotelData.email,
-          phoneNumber: hotelData.phoneNumber,
-          location: hotelData.location,
-          price: parseFloat(hotelData.price),
-          roomsAvailable: parseInt(hotelData.roomsAvailable)
+          phoneNumber: hotelData?.phoneNumber || "",
+          location: hotelData?.location || "",
+          price: parseFloat(hotelData?.charge?.toString() || "0"),
+          roomsAvailable: parseInt(hotelData?.roomsAvailable?.toString() || "0")
         })
       });
 
@@ -230,6 +205,35 @@ const HotelProfile = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogout = async () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Yes",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Clear all stored data
+              await AsyncStorage.clear();
+              
+              // Navigate to login screen
+              router.replace("/");
+            } catch (error) {
+              console.error("Error during logout:", error);
+              Alert.alert("Error", "Failed to logout. Please try again.");
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (loading) {
@@ -300,81 +304,73 @@ const HotelProfile = () => {
             />
           </View>
           <Text className="text-2xl font-bold mt-4">
-            {safeField(hotelData?.name || hotelData?.user?.name) || "Not Set"}
+            {hotelData ? safeField(hotelData.name || hotelData.user?.name) : "Hotel Name"}
           </Text>
           <View className="mt-2 flex-row items-center">
-            <Ionicons 
-              name={hotelData?.isVerified ? "checkmark-circle" : "time"} 
-              size={16} 
-              color={hotelData?.isVerified ? "#10B981" : "#F59E0B"} 
-            />
-            <Text className={`ml-1 text-sm ${hotelData?.isVerified ? "text-green-600" : "text-yellow-600"}`}>
-              {hotelData?.isVerified ? "Verified Hotel" : "Pending Verification"}
-            </Text>
+            {hotelData?.isVerified && (
+              <View className="flex-row items-center">
+                <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+                <Text className="ml-1 text-sm text-green-600">Verified</Text>
+              </View>
+            )}
           </View>
         </View>
 
         {/* Profile Details */}
         <View className="px-4">
-          <View className="mb-6">
-            <Text className="text-sm text-gray-500 mb-2">Email</Text>
-            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
-              <Ionicons name="mail-outline" size={20} color="#6B7280" />
-              <Text className="ml-3 text-gray-800">
-                {safeField(hotelData?.email || hotelData?.user?.email) || "Not Set"}
-              </Text>
-            </View>
-          </View>
-          
-          <View className="mb-6">
-            <Text className="text-sm text-gray-500 mb-2">Contact</Text>
-            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
-              <Ionicons name="call-outline" size={20} color="#6B7280" />
-              <Text className="ml-3 text-gray-800">
-                {safeField(hotelData?.phoneNumber) || "Not Set"}
-              </Text>
-            </View>
-          </View>
-          
-          <View className="mb-6">
-            <Text className="text-sm text-gray-500 mb-2">Location</Text>
-            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
-              <Ionicons name="location-outline" size={20} color="#6B7280" />
-              <Text className="ml-3 text-gray-800">
-                {safeField(hotelData?.location) || "Not Set"}
-              </Text>
-            </View>
-          </View>
-          
-          <View className="mb-6">
-            <Text className="text-sm text-gray-500 mb-2">Itineraries</Text>
-            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
-              <Ionicons name="map-outline" size={20} color="#6B7280" />
-              <Text className="ml-3 text-gray-800">
-                {safeField(hotelData?.itineraries) || "Not Set"}
-              </Text>
-            </View>
-          </View>
-          
-          <View className="mb-6">
-            <Text className="text-sm text-gray-500 mb-2">Rooms Available</Text>
-            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
-              <Ionicons name="bed-outline" size={20} color="#6B7280" />
-              <Text className="ml-3 text-gray-800">
-                {safeField(hotelData?.roomsAvailable) || "Not Set"}
-              </Text>
-            </View>
-          </View>
-          
-          <View className="mb-6">
-            <Text className="text-sm text-gray-500 mb-2">Price per Room</Text>
-            <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
-              <Ionicons name="cash-outline" size={20} color="#6B7280" />
-              <Text className="ml-3 text-gray-800">
-                {hotelData && safeField(hotelData.price) ? `Rs. ${hotelData.price}` : "Not Set"}
-              </Text>
-            </View>
-          </View>
+          {hotelData && (
+            <>
+              <View className="mb-6">
+                <Text className="text-sm text-gray-500 mb-2">Email</Text>
+                <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
+                  <Ionicons name="mail-outline" size={20} color="#6B7280" />
+                  <Text className="ml-3 text-gray-800">
+                    {hotelData.email || hotelData.user?.email || "Not Set"}
+                  </Text>
+                </View>
+              </View>
+              
+              <View className="mb-6">
+                <Text className="text-sm text-gray-500 mb-2">Contact</Text>
+                <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
+                  <Ionicons name="call-outline" size={20} color="#6B7280" />
+                  <Text className="ml-3 text-gray-800">
+                    {hotelData.phoneNumber || "Not Set"}
+                  </Text>
+                </View>
+              </View>
+              
+              <View className="mb-6">
+                <Text className="text-sm text-gray-500 mb-2">Itineraries</Text>
+                <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
+                  <Ionicons name="compass-outline" size={20} color="#6B7280" />
+                  <Text className="ml-3 text-gray-800">
+                    {hotelData.itineraries || "Not Set"}
+                  </Text>
+                </View>
+              </View>
+              
+              <View className="mb-6">
+                <Text className="text-sm text-gray-500 mb-2">Location</Text>
+                <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
+                  <Ionicons name="location-outline" size={20} color="#6B7280" />
+                  <Text className="ml-3 text-gray-800">
+                    {hotelData.location || "Not Set"}
+                  </Text>
+                </View>
+              </View>
+              
+              <View className="mb-6">
+                <Text className="text-sm text-gray-500 mb-2">Charge per Room/Night</Text>
+                <View className="flex-row items-center p-3 bg-gray-50 rounded-lg">
+                  <Ionicons name="cash-outline" size={20} color="#6B7280" />
+                  <Text className="ml-3 text-gray-800">
+                    {hotelData.price ? `Rs. ${hotelData.price.toString()}` : "Not Set"}
+                  </Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Complete Profile Button */}
@@ -388,6 +384,17 @@ const HotelProfile = () => {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Logout Button */}
+        <View className="px-4 mb-8">
+          <TouchableOpacity
+            className="bg-red-500 py-4 rounded-lg"
+            onPress={handleLogout}
+          >
+            <Text className="text-white text-center font-medium">Logout</Text>
+          </TouchableOpacity>
+        </View>
+
       </ScrollView>
       
       {/* Bottom Navigation */}

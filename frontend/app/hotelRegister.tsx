@@ -21,8 +21,6 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 interface HotelFormData {
-  name: string;
-  email: string;
   phoneNumber: string;
   location: string;
   itineraries: string;
@@ -35,9 +33,8 @@ interface HotelFormData {
 const HotelRegister = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<HotelFormData>({
-    name: "",
-    email: "",
     phoneNumber: "",
     location: "",
     itineraries: "",
@@ -53,32 +50,51 @@ const HotelRegister = () => {
 
   const fetchHotelDetails = async () => {
     try {
+      setLoading(true);
       const token = await AsyncStorage.getItem("token");
       if (!token) {
         Alert.alert("Error", "No authentication token found");
+        setLoading(false);
         return;
       }
 
-      const response = await axios.get(`${API_BASE_URL}/hotels/profile/details`, {
+      const response = await axios.get(`${API_BASE_URL}/hotels/profile`, {
         headers: { Authorization: `Bearer ${token.trim()}` },
       });
 
-      if (response.data.hotels && response.data.hotels.length > 0) {
-        const hotel = response.data.hotels[0];
+      if (response.data && response.data.hotel) {
+        const hotel = response.data.hotel;
+        setIsEditing(true);
+        
+        let profileImageUrl = hotel.profileImage;
+        let certificateUrl = hotel.certificate;
+        
+        if (profileImageUrl && !profileImageUrl.startsWith("http")) {
+          profileImageUrl = profileImageUrl.startsWith("/") ? profileImageUrl.slice(1) : profileImageUrl;
+          profileImageUrl = profileImageUrl.replace("uploads", "hotelUploads");
+          profileImageUrl = `${API_BASE_URL}/${profileImageUrl}`;
+        }
+        
+        if (certificateUrl && !certificateUrl.startsWith("http")) {
+          certificateUrl = certificateUrl.startsWith("/") ? certificateUrl.slice(1) : certificateUrl;
+          certificateUrl = certificateUrl.replace("uploads", "hotelUploads");
+          certificateUrl = `${API_BASE_URL}/${certificateUrl}`;
+        }
+        
         setFormData({
-          name: hotel.name || "",
-          email: hotel.email || "",
           phoneNumber: hotel.phoneNumber || "",
           location: hotel.location || "",
           itineraries: hotel.itineraries || "",
           roomsAvailable: hotel.roomsAvailable?.toString() || "",
           price: hotel.price?.toString() || "",
-          profileImage: hotel.profileImage || null,
-          certificate: hotel.certificate || null,
+          profileImage: profileImageUrl || null,
+          certificate: certificateUrl || null,
         });
       }
     } catch (error) {
       console.error("Error fetching hotel details:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -105,14 +121,6 @@ const HotelRegister = () => {
   };
 
   const validateForm = () => {
-    if (!formData.name.trim()) {
-      Alert.alert("Error", "Please enter hotel name");
-      return false;
-    }
-    if (!formData.email.trim()) {
-      Alert.alert("Error", "Please enter email");
-      return false;
-    }
     if (!formData.phoneNumber.trim()) {
       Alert.alert("Error", "Please enter phone number");
       return false;
@@ -133,14 +141,18 @@ const HotelRegister = () => {
       Alert.alert("Error", "Please enter price per room");
       return false;
     }
-    if (!formData.profileImage) {
-      Alert.alert("Error", "Please select a profile image");
-      return false;
+    
+    if (!isEditing) {
+      if (!formData.profileImage) {
+        Alert.alert("Error", "Please select a profile image");
+        return false;
+      }
+      if (!formData.certificate) {
+        Alert.alert("Error", "Please select a certificate image");
+        return false;
+      }
     }
-    if (!formData.certificate) {
-      Alert.alert("Error", "Please select a certificate image");
-      return false;
-    }
+    
     return true;
   };
 
@@ -156,27 +168,25 @@ const HotelRegister = () => {
       }
 
       const formDataToSend = new FormData();
-      formDataToSend.append("name", formData.name);
-      formDataToSend.append("email", formData.email);
       formDataToSend.append("phoneNumber", formData.phoneNumber);
       formDataToSend.append("location", formData.location);
       formDataToSend.append("itineraries", formData.itineraries);
       formDataToSend.append("roomsAvailable", formData.roomsAvailable);
       formDataToSend.append("price", formData.price);
 
-      if (formData.profileImage) {
+      if (formData.profileImage && !formData.profileImage.startsWith("http")) {
         const profileImageUri = formData.profileImage;
         const profileImageName = profileImageUri.split("/").pop() || "profile.jpg";
         const profileImageType = "image/jpeg";
 
-        formDataToSend.append("profileImage", {
+        formDataToSend.append("hotelProfile", {
           uri: profileImageUri,
           name: profileImageName,
           type: profileImageType,
         } as any);
       }
 
-      if (formData.certificate) {
+      if (formData.certificate && !formData.certificate.startsWith("http")) {
         const certificateUri = formData.certificate;
         const certificateName = certificateUri.split("/").pop() || "certificate.jpg";
         const certificateType = "image/jpeg";
@@ -188,8 +198,19 @@ const HotelRegister = () => {
         } as any);
       }
 
+      console.log("Sending hotel registration data:", {
+        phoneNumber: formData.phoneNumber,
+        location: formData.location,
+        itineraries: formData.itineraries,
+        roomsAvailable: formData.roomsAvailable,
+        price: formData.price,
+        hasProfileImage: !!formData.profileImage,
+        hasCertificate: !!formData.certificate,
+        isEditing: isEditing
+      });
+
       const response = await axios.post(
-        `${API_BASE_URL}/hotels/verifyHotel`,
+        `${API_BASE_URL}/hotels/verify`,
         formDataToSend,
         {
           headers: {
@@ -200,15 +221,20 @@ const HotelRegister = () => {
       );
 
       if (response.status === 201) {
-        Alert.alert("Success", "Hotel registration successful!", [
-          {
-            text: "OK",
-            onPress: () => router.replace("/HotelProfile"),
-          },
-        ]);
+        Alert.alert(
+          "Success", 
+          isEditing ? "Hotel details updated successfully!" : "Hotel registration successful!", 
+          [
+            {
+              text: "OK",
+              onPress: () => router.replace("/HotelProfile"),
+            },
+          ]
+        );
       }
     } catch (error: any) {
       console.error("Registration error:", error);
+      console.error("Error response:", error.response?.data);
       Alert.alert(
         "Error",
         error.response?.data?.message || "Failed to register hotel. Please try again."
@@ -242,7 +268,7 @@ const HotelRegister = () => {
         >
           <Ionicons name="arrow-back" size={24} color="#000000" />
         </TouchableOpacity>
-        <Text className="text-xl font-bold">Hotel Registration</Text>
+        <Text className="text-xl font-bold">{isEditing ? "Edit Hotel Details" : "Hotel Registration"}</Text>
         <View className="w-10" />
       </View>
 
@@ -272,28 +298,6 @@ const HotelRegister = () => {
 
           {/* Form Fields */}
           <View className="space-y-4">
-            <View>
-              <Text className="text-gray-500 mb-2">Hotel Name</Text>
-              <TextInput
-                className="bg-gray-50 p-3 rounded-lg"
-                value={formData.name}
-                onChangeText={(text) => setFormData({ ...formData, name: text })}
-                placeholder="Enter hotel name"
-              />
-            </View>
-
-            <View>
-              <Text className="text-gray-500 mb-2">Email</Text>
-              <TextInput
-                className="bg-gray-50 p-3 rounded-lg"
-                value={formData.email}
-                onChangeText={(text) => setFormData({ ...formData, email: text })}
-                placeholder="Enter email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
             <View>
               <Text className="text-gray-500 mb-2">Phone Number</Text>
               <TextInput
@@ -381,7 +385,9 @@ const HotelRegister = () => {
             {loading ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text className="text-white text-center font-medium">Submit Registration</Text>
+              <Text className="text-white text-center font-medium">
+                {isEditing ? "Update Details" : "Submit Registration"}
+              </Text>
             )}
           </TouchableOpacity>
         </ScrollView>

@@ -10,6 +10,9 @@ import {
   Alert,
   Dimensions,
   ActivityIndicator,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -32,6 +35,14 @@ interface Package {
   difficulty?: 'Easy' | 'Moderate' | 'Challenging';
 }
 
+interface EnrolledUser {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  enrollmentDate: string;
+}
+
 const GuidePackage = () => {
   const router = useRouter();
   const bottomSheetRef = useRef<BottomSheet>(null);
@@ -40,6 +51,21 @@ const GuidePackage = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [newPackage, setNewPackage] = useState({
+    title: '',
+    description: '',
+    duration: '',
+    maxPeople: '',
+    locations: '',
+    price: '',
+    image: null as string | null,
+  });
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
+  const [enrolledUsers, setEnrolledUsers] = useState<EnrolledUser[]>([]);
+  const [loadingEnrolledUsers, setLoadingEnrolledUsers] = useState(false);
+  const [showEnrolledUsersModal, setShowEnrolledUsersModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<Package | null>(null);
+  const [editForm, setEditForm] = useState({
     title: '',
     description: '',
     duration: '',
@@ -97,7 +123,6 @@ const GuidePackage = () => {
         throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
       }
 
-      console.log('Parsed data:', data);
       
       if (data.success) {
         // Transform the data to match our Package interface
@@ -111,7 +136,7 @@ const GuidePackage = () => {
               imageUrl = pkg.image;
             } else {
               // Construct the full URL with the API base URL
-              imageUrl = `${API_BASE_URL}/uploads/${pkg.image}`;
+              imageUrl = `${API_BASE_URL}${pkg.image}`;
             }
             
             console.log(`Package ${pkg.id} image URL: ${imageUrl}`);
@@ -202,6 +227,149 @@ const GuidePackage = () => {
     router.push('/packageRegister');
   };
 
+  // Fetch enrolled users for a specific package
+  const fetchEnrolledUsers = async (packageId: string) => {
+    try {
+      setLoadingEnrolledUsers(true);
+      const token = await AsyncStorage.getItem('token');
+      
+      if (!token) {
+        Alert.alert('Error', 'Authentication required');
+        return;
+      }
+      
+      // Fix the API URL to match the backend route
+      const apiUrl = `${API_BASE_URL}/package/${packageId}/enrolled-users`;
+      console.log('Fetching enrolled users from:', apiUrl);
+      console.log('Package ID:', packageId);
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Response data:', data);
+      
+      if (data.success) {
+        setEnrolledUsers(data.data);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to fetch enrolled users');
+      }
+    } catch (error) {
+      console.error('Error fetching enrolled users:', error);
+      Alert.alert('Error', 'Failed to fetch enrolled users. Please try again later.');
+    } finally {
+      setLoadingEnrolledUsers(false);
+    }
+  };
+
+  // Show enrolled users modal
+  const handleShowEnrolledUsers = (pkg: Package) => {
+    setSelectedPackage(pkg);
+    setShowEnrolledUsersModal(true);
+    fetchEnrolledUsers(pkg.id);
+  };
+
+  // Handle edit package
+  const handleEditPackage = (pkg: Package) => {
+    setEditingPackage(pkg);
+    setEditForm({
+      title: pkg.title,
+      description: pkg.description,
+      duration: pkg.duration,
+      maxPeople: pkg.maxPeople.toString(),
+      locations: Array.isArray(pkg.locations) ? pkg.locations.join(', ') : pkg.locations,
+      price: pkg.price.toString(),
+      image: null,
+    });
+    setIsEditMode(true);
+    bottomSheetRef.current?.expand();
+  };
+
+  // Handle update package
+  const handleUpdatePackage = async () => {
+    try {
+      if (!editingPackage) return;
+
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        Alert.alert('Error', 'Authentication required');
+        return;
+      }
+
+      // Validate form
+      if (!editForm.title || !editForm.description || !editForm.duration || 
+          !editForm.maxPeople || !editForm.locations || !editForm.price) {
+        Alert.alert('Error', 'Please fill in all required fields');
+        return;
+      }
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('title', editForm.title);
+      formData.append('description', editForm.description);
+      formData.append('duration', editForm.duration);
+      formData.append('maxPeople', editForm.maxPeople);
+      formData.append('locations', editForm.locations);
+      formData.append('price', editForm.price);
+
+      // Add image if selected
+      if (editForm.image) {
+        const imageUri = editForm.image;
+        const filename = imageUri.split('/').pop() || 'image.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
+        
+        formData.append('image', {
+          uri: imageUri,
+          name: filename,
+          type,
+        } as any);
+      }
+
+      // Send update request
+      const response = await fetch(`${API_BASE_URL}/package/${editingPackage.id}`, {
+        method: 'PUT',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        Alert.alert('Success', 'Package updated successfully');
+        bottomSheetRef.current?.close();
+        fetchPackages(); // Refresh the packages list
+      } else {
+        Alert.alert('Error', data.message || 'Failed to update package');
+      }
+    } catch (error) {
+      console.error('Error updating package:', error);
+      Alert.alert('Error', 'Failed to update package. Please try again later.');
+    }
+  };
+
   const renderPackageCard = ({ item }: { item: Package }) => (
     <View className="bg-white rounded-lg shadow-md m-2 overflow-hidden">
       <View className="w-full h-48 bg-gray-200">
@@ -239,17 +407,18 @@ const GuidePackage = () => {
           </Text>
           <View className="flex-row">
             <TouchableOpacity 
+              className="bg-green-500 px-4 py-2 rounded-lg mr-2"
+              onPress={() => handleShowEnrolledUsers(item)}
+            >
+              <Text className="text-white">Users</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
               className="bg-blue-500 px-4 py-2 rounded-lg mr-2"
-              onPress={() => console.log('Edit package:', item.id)}
+              onPress={() => handleEditPackage(item)}
             >
               <Text className="text-white">Edit</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              className="bg-red-500 px-4 py-2 rounded-lg"
-              onPress={() => console.log('Delete package:', item.id)}
-            >
-              <Text className="text-white">Delete</Text>
-            </TouchableOpacity>
+            
           </View>
         </View>
       </View>
@@ -265,131 +434,198 @@ const GuidePackage = () => {
       enablePanDownToClose={true}
       backgroundStyle={{ backgroundColor: 'white' }}
     >
-      <View className="flex-1">
-        <View className="px-4 py-2 border-b border-gray-200">
-          <View className="flex-row justify-between items-center">
-            <Text className="text-xl font-bold">Create New Package</Text>
-            <TouchableOpacity onPress={() => bottomSheetRef.current?.close()}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      >
+        <View className="flex-1">
+          <View className="px-4 py-2 border-b border-gray-200">
+            <View className="flex-row justify-between items-center">
+              <Text className="text-xl font-bold">
+                {isEditMode ? 'Edit Package' : 'Create New Package'}
+              </Text>
+              <TouchableOpacity onPress={() => {
+                bottomSheetRef.current?.close();
+                setIsEditMode(false);
+                setEditingPackage(null);
+              }}>
+                <Ionicons name="close" size={24} color="black" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <BottomSheetScrollView contentContainerStyle={{ padding: 16 }}>
+            <View className="space-y-4 gap-2">
+              {/* Image Selection */}
+              <View className="gap-1">
+                <Text className="text-gray-600 mb-1">Package Image</Text>
+                <TouchableOpacity
+                  onPress={pickImage}
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-4 items-center justify-center"
+                >
+                  {editForm.image ? (
+                    <View className="w-full">
+                      <Image
+                        source={{ uri: editForm.image }}
+                        className="w-full h-48 rounded-lg"
+                        resizeMode="cover"
+                      />
+                      <TouchableOpacity 
+                        className="absolute top-2 right-2 bg-black/50 rounded-full p-1"
+                        onPress={() => setEditForm({ ...editForm, image: null })}
+                      >
+                        <Ionicons name="close" size={20} color="white" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View className="items-center">
+                      <Ionicons name="image-outline" size={48} color="gray" />
+                      <Text className="text-gray-500 mt-2">Tap to select package image</Text>
+                      <Text className="text-gray-400 text-sm">(16:9 ratio recommended)</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View className="gap-2">
+                <Text className="text-gray-600 mb-1">Package Name</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-lg p-2"
+                  value={editForm.title}
+                  onChangeText={(text) => setEditForm({...editForm, title: text})}
+                  placeholder="Enter package name"
+                  placeholderTextColor="gray"
+                />
+              </View>
+
+              <View className="gap-2">
+                <Text className="text-gray-600 mb-1">Description</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-lg p-2"
+                  value={editForm.description}
+                  onChangeText={(text) => setEditForm({...editForm, description: text})}
+                  placeholder="Enter package description"
+                  placeholderTextColor="gray"
+                  multiline
+                  numberOfLines={3}
+                  style={{ textAlignVertical: 'top' }}
+                />
+              </View>
+
+              <View className="gap-2">
+                <Text className="text-gray-600 mb-1">Duration (in days)</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-lg p-2"
+                  value={editForm.duration}
+                  onChangeText={(text) => setEditForm({...editForm, duration: text})}
+                  placeholder="Enter duration"
+                  placeholderTextColor="gray"
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View className="gap-2">
+                <Text className="text-gray-600 mb-1">Maximum People</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-lg p-2"
+                  value={editForm.maxPeople}
+                  onChangeText={(text) => setEditForm({...editForm, maxPeople: text})}
+                  placeholder="Enter maximum number of people"
+                  placeholderTextColor="gray"
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View className="gap-2">
+                <Text className="text-gray-600 mb-1">Places to Visit (comma-separated)</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-lg p-2"
+                  value={editForm.locations}
+                  onChangeText={(text) => setEditForm({...editForm, locations: text})}
+                  placeholder="e.g., Kathmandu, Pokhara, Chitwan"
+                  placeholderTextColor="gray"
+                />
+              </View>
+
+              <View className="gap-2">
+                <Text className="text-gray-600 mb-1">Price (in Rs.)</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-lg p-2"
+                  value={editForm.price}
+                  onChangeText={(text) => setEditForm({...editForm, price: text})}
+                  placeholder="Enter price"
+                  placeholderTextColor="gray"
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <TouchableOpacity
+                className="bg-blue-500 py-3 rounded-lg mt-6 mb-8"
+                onPress={isEditMode ? handleUpdatePackage : handleCreatePackage}
+              >
+                <Text className="text-white text-center font-bold">
+                  {isEditMode ? 'Update Package' : 'Create Package'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </BottomSheetScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </BottomSheet>
+  );
+
+  // Render enrolled users modal
+  const renderEnrolledUsersModal = () => (
+    <Modal
+      visible={showEnrolledUsersModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setShowEnrolledUsersModal(false)}
+    >
+      <View className="flex-1 bg-black/50 justify-center items-center">
+        <View className="bg-white w-11/12 max-h-4/5 rounded-lg overflow-hidden">
+          <View className="p-4 border-b border-gray-200 flex-row justify-between items-center">
+            <Text className="text-xl font-bold">
+              {selectedPackage?.title} - Enrolled Users
+            </Text>
+            <TouchableOpacity onPress={() => setShowEnrolledUsersModal(false)}>
               <Ionicons name="close" size={24} color="black" />
             </TouchableOpacity>
           </View>
+          
+          {loadingEnrolledUsers ? (
+            <View className="p-8 items-center">
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text className="mt-2 text-gray-600">Loading enrolled users...</Text>
+            </View>
+          ) : enrolledUsers.length === 0 ? (
+            <View className="p-8 items-center">
+              <Ionicons name="people-outline" size={48} color="#9CA3AF" />
+              <Text className="text-xl font-bold text-gray-700 mt-4">No Enrolled Users</Text>
+              <Text className="text-gray-500 text-center mt-2">
+                No users have enrolled in this package yet.
+              </Text>
+            </View>
+          ) : (
+            <ScrollView className="p-4">
+              {enrolledUsers.map((user) => (
+                <View key={user.id} className="bg-gray-50 p-4 rounded-lg mb-3">
+                  <View className="flex-row justify-between items-center">
+                    <Text className="text-lg font-semibold text-gray-800">{user.name}</Text>
+                    <Text className="text-sm text-gray-500">
+                      {new Date(user.enrollmentDate).toLocaleDateString()}
+                    </Text>
+                  </View>
+                  <Text className="text-gray-600 mt-1">{user.email}</Text>
+                  {user.phone && <Text className="text-gray-600">{user.phone}</Text>}
+                </View>
+              ))}
+            </ScrollView>
+          )}
         </View>
-
-        <BottomSheetScrollView contentContainerStyle={{ padding: 16 }}>
-          <View className="space-y-4 gap-2">
-            {/* Image Selection */}
-            <View className="gap-1">
-              <Text className="text-gray-600 mb-1">Package Image</Text>
-              <TouchableOpacity
-                onPress={pickImage}
-                className="border-2 border-dashed border-gray-300 rounded-lg p-4 items-center justify-center"
-              >
-                {newPackage.image ? (
-                  <View className="w-full">
-                    <Image
-                      source={{ uri: newPackage.image }}
-                      className="w-full h-48 rounded-lg"
-                      resizeMode="cover"
-                    />
-                    <TouchableOpacity 
-                      className="absolute top-2 right-2 bg-black/50 rounded-full p-1"
-                      onPress={() => setNewPackage({ ...newPackage, image: null })}
-                    >
-                      <Ionicons name="close" size={20} color="white" />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <View className="items-center">
-                    <Ionicons name="image-outline" size={48} color="gray" />
-                    <Text className="text-gray-500 mt-2">Tap to select package image</Text>
-                    <Text className="text-gray-400 text-sm">(16:9 ratio recommended)</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            <View className="gap-2">
-              <Text className="text-gray-600 mb-1">Package Name</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg p-2"
-                value={newPackage.title}
-                onChangeText={(text) => setNewPackage({...newPackage, title: text})}
-                placeholder="Enter package name"
-                placeholderTextColor="gray"
-              />
-            </View>
-
-            <View className="gap-2">
-              <Text className="text-gray-600 mb-1">Description</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg p-2"
-                value={newPackage.description}
-                onChangeText={(text) => setNewPackage({...newPackage, description: text})}
-                placeholder="Enter package description"
-                placeholderTextColor="gray"
-                multiline
-                numberOfLines={3}
-                style={{ textAlignVertical: 'top' }}
-              />
-            </View>
-
-            <View className="gap-2">
-              <Text className="text-gray-600 mb-1">Duration (in days)</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg p-2"
-                value={newPackage.duration}
-                onChangeText={(text) => setNewPackage({...newPackage, duration: text})}
-                placeholder="Enter duration"
-                placeholderTextColor="gray"
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View className="gap-2">
-              <Text className="text-gray-600 mb-1">Maximum People</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg p-2"
-                value={newPackage.maxPeople}
-                onChangeText={(text) => setNewPackage({...newPackage, maxPeople: text})}
-                placeholder="Enter maximum number of people"
-                placeholderTextColor="gray"
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View className="gap-2">
-              <Text className="text-gray-600 mb-1">Places to Visit (comma-separated)</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg p-2"
-                value={newPackage.locations}
-                onChangeText={(text) => setNewPackage({...newPackage, locations: text})}
-                placeholder="e.g., Kathmandu, Pokhara, Chitwan"
-                placeholderTextColor="gray"
-              />
-            </View>
-
-            <View className="gap-2">
-              <Text className="text-gray-600 mb-1">Price (in Rs.)</Text>
-              <TextInput
-                className="border border-gray-300 rounded-lg p-2"
-                value={newPackage.price}
-                onChangeText={(text) => setNewPackage({...newPackage, price: text})}
-                placeholder="Enter price"
-                placeholderTextColor="gray"
-                keyboardType="numeric"
-              />
-            </View>
-
-            <TouchableOpacity
-              className="bg-blue-500 py-3 rounded-lg mt-6 mb-8"
-              onPress={handleCreatePackage}
-            >
-              <Text className="text-white text-center font-bold">Create Package</Text>
-            </TouchableOpacity>
-          </View>
-        </BottomSheetScrollView>
       </View>
-    </BottomSheet>
+    </Modal>
   );
 
   return (
@@ -443,6 +679,9 @@ const GuidePackage = () => {
 
         {/* Bottom Sheet */}
         {renderBottomSheet()}
+        
+        {/* Enrolled Users Modal */}
+        {renderEnrolledUsersModal()}
 
         {/* Bottom Navigation */}
         <BottomNavigation />
