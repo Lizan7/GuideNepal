@@ -78,13 +78,9 @@ const Admin = () => {
         }
       };
 
-      console.log("🔹 Fetching guides data...");
       const guidesResponse = await axios.get(`${API_BASE_URL}/guides/all`, config);
-      console.log("🔹 Guides Response:", guidesResponse.data);
 
-      console.log("🔹 Fetching hotels data...");
       const hotelsResponse = await axios.get(`${API_BASE_URL}/hotels/all`, config);
-      console.log("🔹 Hotels Response:", hotelsResponse.data);
 
       // Check if the responses have the expected data structure
       if (guidesResponse.data?.success && Array.isArray(guidesResponse.data.guides)) {
@@ -173,6 +169,22 @@ const Admin = () => {
     } catch (error: any) {
       console.error("Error verifying hotel:", error.response?.data || error.message);
       Alert.alert("Error", error.response?.data?.error || "Failed to verify hotel");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Clear the authentication token from AsyncStorage
+      await AsyncStorage.removeItem("token");
+      
+      // Show a success message
+      Alert.alert("Success", "You have been logged out successfully");
+      
+      // Navigate to the login screen
+      router.replace("/LoginScreen");
+    } catch (error) {
+      console.error("Error during logout:", error);
+      Alert.alert("Error", "Failed to log out. Please try again.");
     }
   };
 
@@ -311,8 +323,14 @@ const Admin = () => {
   return (
     <View className="flex-1 bg-gray-100">
       {/* Header */}
-      <View className="bg-white p-4 flex-row items-center justify-center">
+      <View className="bg-white p-4 flex-row items-center justify-between">
         <Text className="text-xl font-bold">Admin Dashboard</Text>
+        <TouchableOpacity 
+          onPress={handleLogout}
+          className="bg-red-500 px-4 py-2 rounded-lg flex-row items-center"
+        >
+          <Text className="text-white font-semibold ml-2">Logout</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tab Navigation */}

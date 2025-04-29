@@ -133,6 +133,35 @@ const GuideProfile = () => {
     }
   };
 
+  const handleLogout = async () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Logout",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Clear all stored data
+              await AsyncStorage.clear();
+              
+              // Navigate to login screen
+              router.replace("/");
+            } catch (error) {
+              console.error("Error during logout:", error);
+              Alert.alert("Error", "Failed to logout. Please try again.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView className="flex-1 bg-white">
@@ -280,6 +309,16 @@ const GuideProfile = () => {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Logout Button */}
+        <View className="px-4 mb-8">
+          <TouchableOpacity
+            className="bg-red-500 py-4 rounded-lg"
+            onPress={handleLogout}
+          >
+            <Text className="text-white text-center font-medium">Logout</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
       
       {/* Bottom Navigation */}
