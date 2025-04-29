@@ -484,10 +484,37 @@ const checkGuideAvailability = async (req, res) => {
   }
 };
 
+// Get all bookings for a hotel
+const getHotelBookings = async (req, res) => {
+  try {
+    const hotelId = req.user.id;
+
+    // Ensure hotel exists
+    const hotel = await prisma.hotel.findUnique({ where: { userId: parseInt(hotelId) } });
+    if (!hotel) {
+      return res.status(404).json({ error: "Hotel not found" });
+    }
+
+    const bookings = await prisma.hotelBooking.findMany({
+      where: { hotelId: hotel.id },
+      include: {
+        user: { select: { id: true, email: true, name: true } },
+      },
+      orderBy: { startDate: "desc" },
+    });
+
+    return res.status(200).json({ success: true, bookings });
+  } catch (error) {
+    console.error("Error fetching hotel bookings:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 module.exports = { 
   createUserBooking, 
   createHotelBooking,
   getUserBookings, 
   getGuideBookings,
-  checkGuideAvailability
+  checkGuideAvailability,
+  getHotelBookings
 };

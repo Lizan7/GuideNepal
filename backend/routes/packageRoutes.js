@@ -9,19 +9,21 @@ const {
   deletePackage,
   getEnrolledPackages,
   enrollInPackage,
+  getEnrolledUsers,
 } = require("../controllers/packageController");
 
 // Public routes
 router.get("/", getAllPackages);
+
+// Package enrollment routes - place these before the :id routes to avoid conflicts
+router.get("/enrolled", authenticateUser(), getEnrolledPackages);
+router.get("/:packageId/enrolled-users", authenticateUser(), getEnrolledUsers);
+router.post("/:packageId/enroll", authenticateUser(), enrollInPackage);
 
 // Protected routes
 router.post("/create", authenticateUser(), createPackage);
 router.get("/guide", authenticateUser(), getGuidePackages);
 router.put("/:id", authenticateUser(), updatePackage);
 router.delete("/:id", authenticateUser(), deletePackage);
-
-// Package enrollment routes
-router.get("/enrolled", authenticateUser(), getEnrolledPackages);
-router.post("/:packageId/enroll", authenticateUser(), enrollInPackage);
 
 module.exports = router; 

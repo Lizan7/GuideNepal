@@ -6,7 +6,8 @@ const {
   createUserBooking, 
   getUserBookings, 
   getGuideBookings,
-  checkGuideAvailability
+  checkGuideAvailability,
+  getHotelBookings
 } = require("../controllers/bookingController");
 const { createHotelBooking } = require("../controllers/hotelBookController");
 const prisma = new PrismaClient();
@@ -22,6 +23,9 @@ router.get("/user/:userId", authenticateUser(), getUserBookings);
 
 // Get all bookings for a guide
 router.get("/guide", authenticateUser(), getGuideBookings);
+
+// Get all bookings for a hotel
+router.get("/hotel", authenticateUser(["HOTEL"]), getHotelBookings);
 
 // Check guide availability for specific dates
 router.post("/check-availability", authenticateUser(), checkGuideAvailability);
