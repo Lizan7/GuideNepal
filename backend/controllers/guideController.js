@@ -67,7 +67,7 @@ const storeGuideDetails = async (req, res) => {
           location,
           specialization,
           email,
-          charge: chargeFloat, // Use the float value
+          charge: chargeFloat, 
         };
 
         // Only update images if new ones are provided

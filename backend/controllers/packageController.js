@@ -250,18 +250,17 @@ const updatePackage = async (req, res) => {
         price,
       } = req.body;
 
-      // Check if package exists and belongs to the guide
-      const existingPackage = await prisma.package.findFirst({
+      // Check if package exists
+      const existingPackage = await prisma.package.findUnique({
         where: {
-          id: id,
-          guideId: req.user.id,
+          id: parseInt(id),
         },
       });
 
       if (!existingPackage) {
         return res.status(404).json({
           success: false,
-          message: "Package not found or unauthorized",
+          message: "Package not found",
         });
       }
 
@@ -280,26 +279,39 @@ const updatePackage = async (req, res) => {
         packageImage = `packageImages/${req.file.filename}`;
       }
 
-      // Convert locations string to array if it's a string
-      const locationArray = typeof locations === 'string'
-        ? locations.split(',').map(loc => loc.trim())
-        : locations;
+      // Handle locations - convert to array if string, then to JSON
+      let locationsArray;
+      if (typeof locations === 'string') {
+        // If it's a comma-separated string, split it
+        locationsArray = locations.split(',').map(loc => loc.trim());
+      } else if (Array.isArray(locations)) {
+        // If it's already an array, use it as is
+        locationsArray = locations;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Locations must be either a string or an array",
+        });
+      }
 
-      // Update package
+      // Convert locations array to JSON string
+      const locationsJson = JSON.stringify(locationsArray);
+
+      // Update package in database
       const updatedPackage = await prisma.package.update({
-        where: { id: id },
+        where: { id: parseInt(id) },
         data: {
           title: title || existingPackage.title,
           description: description || existingPackage.description,
           duration: duration ? parseInt(duration) : existingPackage.duration,
           maxPeople: maxPeople ? parseInt(maxPeople) : existingPackage.maxPeople,
-          locations: locationArray || existingPackage.locations,
+          locations: locationsJson || existingPackage.locations,
           price: price ? parseFloat(price) : existingPackage.price,
           image: packageImage,
         },
       });
 
-      // Parse locations for response
+      // Parse locations back to array for response
       const responsePackage = {
         ...updatedPackage,
         locations: JSON.parse(updatedPackage.locations)
@@ -519,6 +531,68 @@ const enrollInPackage = async (req, res) => {
   }
 };
 
+// Get enrolled users for a specific package
+const getEnrolledUsers = async (req, res) => {
+  try {
+    const { packageId } = req.params;
+    const userId = req.user.id;
+
+    // First, check if the package exists
+    const package = await prisma.package.findUnique({
+      where: {
+        id: parseInt(packageId),
+      },
+    });
+
+    if (!package) {
+      return res.status(404).json({
+        success: false,
+        message: "Package not found",
+      });
+    }
+
+    // Get all enrollments for this package with user details
+    const enrollments = await prisma.packageEnrollment.findMany({
+      where: {
+        packageId: parseInt(packageId),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Format the response data
+    const enrolledUsers = enrollments.map(enrollment => ({
+      id: enrollment.user.id,
+      name: enrollment.user.name,
+      email: enrollment.user.email,
+      phone: enrollment.user.phone,
+      enrollmentDate: enrollment.createdAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: enrolledUsers,
+    });
+  } catch (error) {
+    console.error("Error fetching enrolled users:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching enrolled users",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   createPackage,
   getAllPackages,
@@ -527,4 +601,5 @@ module.exports = {
   deletePackage,
   getEnrolledPackages,
   enrollInPackage,
+  getEnrolledUsers,
 };

@@ -43,10 +43,13 @@ const verifyHotelDetails = async (req, res) => {
       const userName = req.user.name;
 
       console.log(`✅ Processing hotel verification for UserID: ${userId}, Email: ${userEmail}`);
+      console.log("Request body:", req.body);
+      console.log("Files:", req.files ? Object.keys(req.files) : "No files");
 
       const { phoneNumber, location, price, itineraries, roomsAvailable } = req.body;
 
-      if (!req.files) {
+      // Check if files were uploaded
+      if (!req.files || (!req.files["certificate"] && !req.files["hotelProfile"])) {
         console.error("❌ No images uploaded in request");
         return res.status(400).json({ error: "No images uploaded" });
       }
@@ -88,7 +91,16 @@ const verifyHotelDetails = async (req, res) => {
       // Validate required fields
       if (!phoneNumber || !location || !price || !itineraries || !roomsAvailable) {
         console.error("❌ Missing required fields in request body");
-        return res.status(400).json({ error: "Missing required fields" });
+        return res.status(400).json({ 
+          error: "Missing required fields",
+          details: {
+            phoneNumber: !phoneNumber,
+            location: !location,
+            price: !price,
+            itineraries: !itineraries,
+            roomsAvailable: !roomsAvailable
+          }
+        });
       }
 
       // If hotel record exists, update it; otherwise, create a new record
@@ -255,10 +267,40 @@ const getAllHotelDetails = async (req, res) => {
   }
 };
 
+// Get Hotel Profile Details
+const getHotelProfileDetails = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Find the hotel by userId
+    const hotel = await prisma.hotel.findUnique({
+      where: { userId: parseInt(userId) },
+      include: {
+        user: {
+          select: {
+            email: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!hotel) {
+      return res.status(404).json({ error: "Hotel not found" });
+    }
+
+    return res.status(200).json({ hotel });
+  } catch (error) {
+    console.error("Error fetching hotel profile details:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 module.exports = {
   verifyHotelDetails,
   getHotels,
   getHotelById,
   getHotelLocations,
   getAllHotelDetails,
+  getHotelProfileDetails,
 };
